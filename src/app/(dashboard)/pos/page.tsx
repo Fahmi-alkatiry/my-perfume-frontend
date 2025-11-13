@@ -3,8 +3,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import axios from "@/lib/axios";
-import { toast } from "sonner"; // Untuk notifikasi
+import axios from "@/lib/axios"; // Menggunakan instance axios yang sudah dikonfigurasi
+import { toast } from "sonner";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -28,13 +28,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch"; // Untuk toggle poin
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"; // Untuk Combobox
+} from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -42,15 +42,21 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command"; // Untuk Combobox
+} from "@/components/ui/command";
 import {
   Sheet,
   SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet"; // Untuk UI Mobile
+} from "@/components/ui/sheet";
+// --- Impor BARU untuk Metode Pembayaran ---
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+// ----------------------------------------
 import {
   Loader2,
   Plus,
@@ -61,7 +67,7 @@ import {
   ChevronsUpDown,
   User,
   X,
-  ShoppingCart, // Ikon keranjang mobile
+  ShoppingCart,
 } from "lucide-react";
 
 // --- Tipe Data ---
@@ -86,19 +92,24 @@ interface Customer {
   points: number;
 }
 
-
-// ... (interface lainnya)
-// Tambahkan interface untuk User
 interface LoggedInUser {
   id: number;
   name: string;
   role: string;
 }
 
+interface PaymentMethod {
+  id: number;
+  name: string;
+}
+
 // --- Konstanta API ---
-const API_URL_PRODUCTS = "http://localhost:5000/api/products";
-const API_URL_CUSTOMERS = "http://localhost:5000/api/customers";
-const API_URL_TRANSACTIONS = "http://localhost:5000/api/transactions";
+// (Menggunakan path relatif karena baseURL sudah diatur di @/lib/axios)
+const API_URL_PRODUCTS = "/api/products";
+const API_URL_CUSTOMERS = "/api/customers";
+const API_URL_TRANSACTIONS = "/api/transactions";
+const API_URL_AUTH_ME = "/api/auth/me";
+const API_URL_PAYMENT_METHODS = "/api/payment-methods";
 
 // ====================================================================
 // ================= Halaman Utama POS (Induk) ========================
@@ -110,20 +121,25 @@ export default function PosPage() {
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  // State untuk User
+  const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
   const [usePoints, setUsePoints] = useState(false);
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // State untuk sheet mobile
 
-  const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(null); // <-- STATE BARU
+  // State untuk Metode Pembayaran
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
 
-  // --- LOGIKA FETCH PRODUK ---
+  // --- LOGIKA FETCH DATA ---
   const fetchProducts = async () => {
     setIsLoadingProducts(true);
     try {
       const response = await axios.get(API_URL_PRODUCTS, {
-        params: { limit: 1000 }, // Ambil semua produk
+        params: { limit: 1000 },
       });
       setProducts(response.data.data);
     } catch (error) {
@@ -133,22 +149,33 @@ export default function PosPage() {
     }
   };
 
-useEffect(() => {
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const res = await axios.get(API_URL_AUTH_ME);
+        setCurrentUser(res.data);
+      } catch (error) {
+        console.error(error);
+        toast.error("Gagal memuat data kasir");
+      }
+    };
 
+    const fetchPaymentMethods = async () => {
+      try {
+        const res = await axios.get(API_URL_PAYMENT_METHODS);
+        setPaymentMethods(res.data);
+        if (res.data.length > 0) {
+          setSelectedMethodId(res.data[0].id); // Otomatis pilih metode pertama
+        }
+      } catch (error) {
+        toast.error("Gagal memuat metode pembayaran");
+      }
+    };
 
-  const fetchCurrentUser = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/auth/me");
-      setCurrentUser(res.data);
-    } catch (error) {
-      console.error(error);
-      toast.error("Gagal memuat data kasir");
-    }
-  };
-
-  fetchProducts();
-  fetchCurrentUser(); // <-- PANGGIL FUNGSI INI
-}, []);
+    fetchProducts();
+    fetchCurrentUser();
+    fetchPaymentMethods();
+  }, []);
 
   // --- LOGIKA FILTER PRODUK (LOKAL) ---
   const filteredProducts = useMemo(() => {
@@ -164,11 +191,8 @@ useEffect(() => {
   const addToCart = (product: Product) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
-      
-      // Ambil stok terbaru dari state 'products'
       const freshProduct = products.find((p) => p.id === product.id);
       const currentStock = freshProduct ? freshProduct.stock : 0;
-
       const cartQuantity = existingItem ? existingItem.quantity : 0;
 
       if (cartQuantity >= currentStock) {
@@ -177,16 +201,13 @@ useEffect(() => {
         });
         return prevCart;
       }
-
       if (existingItem) {
-        // Update quantity
         return prevCart.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       } else {
-        // Tambah item baru
         return [...prevCart, { ...product, stock: currentStock, quantity: 1 }];
       }
     });
@@ -194,13 +215,10 @@ useEffect(() => {
 
   const updateQuantity = (productId: number, newQuantity: number) => {
     setCart((prevCart) => {
-      // Hapus jika kuantitas <= 0
       if (newQuantity <= 0) {
         return prevCart.filter((item) => item.id !== productId);
       }
-
       const itemToUpdate = prevCart.find((item) => item.id === productId);
-      // Cek stok terbaru
       const freshProduct = products.find((p) => p.id === productId);
       const currentStock = freshProduct ? freshProduct.stock : 0;
 
@@ -208,10 +226,8 @@ useEffect(() => {
         toast.error("Stok Tidak Cukup", {
           description: `Stok ${itemToUpdate.name} hanya tersisa ${currentStock}.`,
         });
-        return prevCart; // Kembalikan keranjang tanpa perubahan
+        return prevCart;
       }
-
-      // Update kuantitas
       return prevCart.map((item) =>
         item.id === productId ? { ...item, quantity: newQuantity } : item
       );
@@ -240,7 +256,6 @@ useEffect(() => {
     return subtotal - discountAmount;
   }, [subtotal, discountAmount]);
 
-  // Efek untuk mematikan 'usePoints'
   useEffect(() => {
     if (!selectedCustomer || selectedCustomer.points < 10) {
       setUsePoints(false);
@@ -253,6 +268,12 @@ useEffect(() => {
       toast.warning("Keranjang kosong");
       return;
     }
+    
+    // Validasi Metode Pembayaran
+    if (!selectedMethodId) {
+      toast.error("Metode pembayaran belum dipilih");
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -263,9 +284,8 @@ useEffect(() => {
       })),
       customerId: selectedCustomer?.id || null,
       usePoints: usePoints,
-      // Nanti bisa ditambahkan:
-      userId: currentUser?.id || null,
-      // paymentMethodId: 1 (jika ada pilihan metode bayar)
+      userId: currentUser?.id || null, // Kirim ID kasir
+      paymentMethodId: selectedMethodId, // Kirim ID metode bayar
     };
 
     try {
@@ -281,10 +301,12 @@ useEffect(() => {
       setCart([]);
       setSelectedCustomer(null);
       setUsePoints(false);
-      setIsSheetOpen(false); // Tutup sheet mobile
+      setIsSheetOpen(false);
+      if (paymentMethods.length > 0) {
+        setSelectedMethodId(paymentMethods[0].id); // Reset ke default
+      }
       
-      // Refresh stok produk di UI
-      fetchProducts();
+      fetchProducts(); // Refresh stok produk di UI
       
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || "Terjadi kesalahan";
@@ -326,6 +348,10 @@ useEffect(() => {
               onUpdateQuantity={updateQuantity}
               onRemoveFromCart={removeFromCart}
               onCheckout={handleCheckout}
+              // Props baru untuk metode pembayaran
+              paymentMethods={paymentMethods}
+              selectedMethodId={selectedMethodId}
+              onSelectMethod={setSelectedMethodId}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -369,6 +395,10 @@ useEffect(() => {
               onUpdateQuantity={updateQuantity}
               onRemoveFromCart={removeFromCart}
               onCheckout={handleCheckout}
+              // Props baru untuk metode pembayaran
+              paymentMethods={paymentMethods}
+              selectedMethodId={selectedMethodId}
+              onSelectMethod={setSelectedMethodId}
             />
           </SheetContent>
         </Sheet>
@@ -445,7 +475,6 @@ function ProductListView({
 // ====================================================================
 // ================= Komponen UI: Keranjang (CartView) ================
 // ====================================================================
-// Komponen ini digunakan oleh Desktop Panel dan Mobile Sheet
 function CartView({
   cart,
   selectedCustomer,
@@ -459,6 +488,10 @@ function CartView({
   onUpdateQuantity,
   onRemoveFromCart,
   onCheckout,
+  // Props baru
+  paymentMethods,
+  selectedMethodId,
+  onSelectMethod,
 }: {
   cart: CartItem[];
   selectedCustomer: Customer | null;
@@ -472,9 +505,14 @@ function CartView({
   onUpdateQuantity: (productId: number, newQuantity: number) => void;
   onRemoveFromCart: (productId: number) => void;
   onCheckout: () => void;
+  // Tipe baru
+  paymentMethods: PaymentMethod[];
+  selectedMethodId: number | null;
+  onSelectMethod: (id: number) => void;
 }) {
   return (
     <div className="flex h-full flex-col">
+      {/* Bagian Atas (Pelanggan & Item) */}
       <div className="p-4">
         <h2 className="text-2xl font-bold mb-4">Keranjang</h2>
         <div className="mb-4">
@@ -584,7 +622,6 @@ function CartView({
             <span>Rp {subtotal.toLocaleString("id-ID")}</span>
           </div>
           
-          {/* Switch Diskon Poin */}
           {selectedCustomer && selectedCustomer.points >= 10 && (
             <div className="flex items-center justify-between">
               <Label htmlFor="use-points-switch" className="flex flex-col">
@@ -601,7 +638,6 @@ function CartView({
             </div>
           )}
           
-          {/* Tampilan Diskon */}
           {discountAmount > 0 && (
             <div className="flex justify-between text-destructive">
               <span className="font-medium">Diskon Poin</span>
@@ -609,18 +645,41 @@ function CartView({
             </div>
           )}
 
-          {/* Total Akhir */}
           <div className="flex justify-between text-xl font-bold">
             <span>Total</span>
             <span>Rp {cartTotal.toLocaleString("id-ID")}</span>
           </div>
           
-          {/* Tombol Bayar */}
+          {/* --- BARU: DROPDOWN METODE PEMBAYARAN --- */}
+          <div className="space-y-2">
+            <Label>Metode Pembayaran</Label>
+            <Select
+              value={selectedMethodId?.toString() || ""}
+              onValueChange={(value) => onSelectMethod(Number(value))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih metode pembayaran..." />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentMethods.length === 0 ? (
+                  <SelectItem value="loading" disabled>Memuat...</SelectItem>
+                ) : (
+                  paymentMethods.map((method) => (
+                    <SelectItem key={method.id} value={method.id.toString()}>
+                      {method.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* ------------------------------------- */}
+          
           <Button
             size="lg"
             className="w-full text-lg"
             onClick={onCheckout}
-            disabled={isSubmitting || cart.length === 0}
+            disabled={isSubmitting || cart.length === 0 || !selectedMethodId}
           >
             {isSubmitting ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -646,13 +705,12 @@ function CustomerCombobox({
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Efek untuk mencari pelanggan (dengan debounce)
   useEffect(() => {
     const fetchCustomers = async () => {
       setIsLoading(true);
       try {
         const response = await axios.get(API_URL_CUSTOMERS, {
-          params: { search: search, limit: 10 }, // Ambil 10 hasil
+          params: { search: search, limit: 10 },
         });
         setCustomers(response.data.data);
       } catch (error) {
@@ -662,12 +720,11 @@ function CustomerCombobox({
       }
     };
     
-    // Timer debounce 300ms
     const timer = setTimeout(() => {
       fetchCustomers();
     }, 300);
 
-    return () => clearTimeout(timer); // Bersihkan timer
+    return () => clearTimeout(timer);
   }, [search]);
 
   return (
@@ -709,7 +766,7 @@ function CustomerCombobox({
                   }}
                 >
                   <Check
-                    className={"mr-2 h-4 w-4 opacity-0"} // Diberi opacity 0 agar layout rapi
+                    className={"mr-2 h-4 w-4 opacity-0"}
                   />
                   <div>
                     <p>{customer.name}</p>

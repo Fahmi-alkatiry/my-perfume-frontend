@@ -16,6 +16,7 @@ import {
   LogOut,
   LineChart,
   Store, // Ikon untuk nama toko
+  CreditCard,
 } from "lucide-react";
 import { ReactNode } from "react";
 
@@ -47,6 +48,11 @@ const navLinks = [
     href: "/customers",
     label: "Pelanggan",
     icon: Users,
+  },
+  {
+    href: "/payment-methods",
+    label: "Metode Bayar",
+    icon: CreditCard,
   },
 ];
 
