@@ -14,6 +14,7 @@ import {
   Package,
   Users,
   LogOut,
+  LineChart,
   Store, // Ikon untuk nama toko
 } from "lucide-react";
 import { ReactNode } from "react";
@@ -30,15 +31,20 @@ const navLinks = [
     label: "Kasir",
     icon: TabletSmartphone,
   },
+  // --- 2. TAMBAHKAN LINK BARU DI SINI ---
   {
-    // Pastikan URL ini sesuai dengan struktur folder Anda
-    href: "/dashboard/products", 
+    href: "/reports",
+    label: "Laporan",
+    icon: LineChart,
+  },
+  // ------------------------------------
+  {
+    href: "/products",
     label: "Produk",
     icon: Package,
   },
   {
-    // Pastikan URL ini sesuai dengan struktur folder Anda
-    href: "/dashboard/customers", 
+    href: "/customers",
     label: "Pelanggan",
     icon: Users,
   },

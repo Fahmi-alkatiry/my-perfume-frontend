@@ -86,6 +86,15 @@ interface Customer {
   points: number;
 }
 
+
+// ... (interface lainnya)
+// Tambahkan interface untuk User
+interface LoggedInUser {
+  id: number;
+  name: string;
+  role: string;
+}
+
 // --- Konstanta API ---
 const API_URL_PRODUCTS = "http://localhost:5000/api/products";
 const API_URL_CUSTOMERS = "http://localhost:5000/api/customers";
@@ -107,6 +116,8 @@ export default function PosPage() {
   const [usePoints, setUsePoints] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false); // State untuk sheet mobile
 
+  const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(null); // <-- STATE BARU
+
   // --- LOGIKA FETCH PRODUK ---
   const fetchProducts = async () => {
     setIsLoadingProducts(true);
@@ -122,9 +133,22 @@ export default function PosPage() {
     }
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+useEffect(() => {
+
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/auth/me");
+      setCurrentUser(res.data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal memuat data kasir");
+    }
+  };
+
+  fetchProducts();
+  fetchCurrentUser(); // <-- PANGGIL FUNGSI INI
+}, []);
 
   // --- LOGIKA FILTER PRODUK (LOKAL) ---
   const filteredProducts = useMemo(() => {
@@ -240,7 +264,7 @@ export default function PosPage() {
       customerId: selectedCustomer?.id || null,
       usePoints: usePoints,
       // Nanti bisa ditambahkan:
-      // userId: 1, (jika sudah ada login)
+      userId: currentUser?.id || null,
       // paymentMethodId: 1 (jika ada pilihan metode bayar)
     };
 
