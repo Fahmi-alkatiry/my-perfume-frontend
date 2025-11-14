@@ -168,7 +168,7 @@ export default function PaymentMethodsPage() {
   // ------------------------------
 
   return (
-    <div>
+    <div className="h-full overflow-auto p-4 lg:p-6">
       {/* Header Halaman */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
         {/* --- UBAH: Judul --- */}

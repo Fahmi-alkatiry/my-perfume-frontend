@@ -90,7 +90,7 @@ export default function DashboardPage() {
 
   // Tampilkan data jika sudah siap
   return (
-    <div>
+    <div className="h-full overflow-auto p-4 lg:p-6">
       <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
       <p className="mb-6 text-muted-foreground">
         Ringkasan penjualan dan aktivitas toko Anda hari ini.

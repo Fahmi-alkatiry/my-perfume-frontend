@@ -33,12 +33,7 @@ import {
 } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Loader2,
-  CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Loader2, CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 
 // --- Tipe Data ---
 interface Transaction {
@@ -48,6 +43,7 @@ interface Transaction {
   totalMargin: number;
   customer: { name: string } | null;
   user: { name: string } | null; // Kasir
+  paymentMethod: { name: string } | null; // <-- BARU
 }
 
 interface PaginationInfo {
@@ -144,7 +140,7 @@ export default function ReportsPage() {
 
   // --- RENDER (JSX) ---
   return (
-    <div>
+    <div className="h-full overflow-auto p-4 lg:p-6">
       <h1 className="text-3xl font-bold mb-4">Riwayat Transaksi</h1>
       <p className="mb-6 text-muted-foreground">
         Lihat semua transaksi yang telah selesai.
@@ -193,6 +189,7 @@ export default function ReportsPage() {
                   <TableHead>ID Transaksi</TableHead>
                   <TableHead>Pelanggan</TableHead>
                   <TableHead>Kasir</TableHead>
+                  <TableHead>Metode Bayar</TableHead>
                   <TableHead className="text-right">Total Profit</TableHead>
                   <TableHead className="text-right">Total Penjualan</TableHead>
                 </TableRow>
@@ -211,6 +208,7 @@ export default function ReportsPage() {
                       <TableCell className="font-medium">TRX-{tx.id}</TableCell>
                       <TableCell>{tx.customer?.name || "Guest"}</TableCell>
                       <TableCell>{tx.user?.name || "N/A"}</TableCell>
+                      <TableCell>{tx.paymentMethod?.name || "N/A"}</TableCell>
                       <TableCell className="text-right text-green-600">
                         {formatCurrency(tx.totalMargin)}
                       </TableCell>
@@ -241,25 +239,33 @@ export default function ReportsPage() {
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">Total</span>
+                      <span className="text-muted-foreground text-sm">
+                        Total
+                      </span>
                       <span className="font-medium">
                         {formatCurrency(tx.finalAmount)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">Profit</span>
+                      <span className="text-muted-foreground text-sm">
+                        Profit
+                      </span>
                       <span className="font-medium text-green-600">
                         {formatCurrency(tx.totalMargin)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">Pelanggan</span>
+                      <span className="text-muted-foreground text-sm">
+                        Pelanggan
+                      </span>
                       <span className="font-medium text-sm">
                         {tx.customer?.name || "Guest"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">Kasir</span>
+                      <span className="text-muted-foreground text-sm">
+                        Kasir
+                      </span>
                       <span className="font-medium text-sm">
                         {tx.user?.name || "N/A"}
                       </span>
@@ -303,23 +309,47 @@ function ReportLoadingSkeleton() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead><Skeleton className="h-5 w-32" /></TableHead>
-              <TableHead><Skeleton className="h-5 w-20" /></TableHead>
-              <TableHead><Skeleton className="h-5 w-24" /></TableHead>
-              <TableHead><Skeleton className="h-5 w-24" /></TableHead>
-              <TableHead className="text-right"><Skeleton className="h-5 w-28 ml-auto" /></TableHead>
-              <TableHead className="text-right"><Skeleton className="h-5 w-28 ml-auto" /></TableHead>
+              <TableHead>
+                <Skeleton className="h-5 w-32" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-5 w-20" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-5 w-24" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-5 w-24" />
+              </TableHead>
+              <TableHead className="text-right">
+                <Skeleton className="h-5 w-28 ml-auto" />
+              </TableHead>
+              <TableHead className="text-right">
+                <Skeleton className="h-5 w-28 ml-auto" />
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {[...Array(5)].map((_, i) => (
               <TableRow key={i}>
-                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-28 ml-auto" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-28 ml-auto" /></TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-32" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-20" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-28 ml-auto" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-28 ml-auto" />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

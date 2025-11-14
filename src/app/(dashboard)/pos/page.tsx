@@ -1,8 +1,8 @@
-// frontend/src/app/pos/page.tsx
+// frontend/src/app/(dashboard)/pos/page.tsx
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, FormEvent } from "react"; // Impor FormEvent
 import axios from "@/lib/axios"; // Menggunakan instance axios yang sudah dikonfigurasi
 import { toast } from "sonner";
 import {
@@ -13,12 +13,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -43,12 +38,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-// --- Impor BARU untuk Metode Pembayaran ---
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -56,6 +46,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+// --- Impor BARU untuk Modal Pembayaran ---
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 // ----------------------------------------
 import {
   Loader2,
@@ -80,31 +79,26 @@ interface Product {
   sellingPrice: number;
   productCode: string;
 }
-
 interface CartItem extends Product {
   quantity: number;
 }
-
 interface Customer {
   id: number;
   name: string;
   phoneNumber: string;
   points: number;
 }
-
 interface LoggedInUser {
   id: number;
   name: string;
   role: string;
 }
-
 interface PaymentMethod {
   id: number;
   name: string;
 }
 
 // --- Konstanta API ---
-// (Menggunakan path relatif karena baseURL sudah diatur di @/lib/axios)
 const API_URL_PRODUCTS = "/api/products";
 const API_URL_CUSTOMERS = "/api/customers";
 const API_URL_TRANSACTIONS = "/api/transactions";
@@ -133,6 +127,10 @@ export default function PosPage() {
   // State untuk Metode Pembayaran
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
+
+  // --- State untuk Modal Pembayaran ---
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [cashPaid, setCashPaid] = useState("");
 
   // --- LOGIKA FETCH DATA ---
   const fetchProducts = async () => {
@@ -262,14 +260,69 @@ export default function PosPage() {
     }
   }, [selectedCustomer]);
 
+  // --- FUNGSI Buka WhatsApp ---
+  const openWhatsApp = (receiptData: { cashPaid: number; change: number }) => {
+    if (!selectedCustomer || !selectedCustomer.phoneNumber) {
+      toast.info("Tidak bisa kirim WhatsApp", {
+        description: "Pelanggan tidak dipilih atau tidak punya nomor HP.",
+      });
+      return;
+    }
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    const timeStr = now.toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const orderDetails = cart
+      .map((item, index) => {
+        return `${index + 1}. ${item.name} ${item.quantity}x Rp ${Number(
+          item.sellingPrice
+        ).toLocaleString("id-ID")}`;
+      })
+      .join("\n");
+
+    let phone = selectedCustomer.phoneNumber.trim();
+    if (phone.startsWith("0")) {
+      phone = "62" + phone.substring(1);
+    }
+    
+    const message = `
+*My Perfume*
+Jl. Raya panglegur
+Kota Pamekasan
+Tanggal : ${dateStr} pukul ${timeStr}
+Nama    : ${selectedCustomer.name}
+Poin    : ${selectedCustomer.points}
+
+*Detail Pesanan:*
+${orderDetails}
+
+*Total:* Rp ${cartTotal.toLocaleString("id-ID")}
+*Tunai:* Rp ${receiptData.cashPaid.toLocaleString("id-ID")}
+*Kembalian:* Rp ${receiptData.change.toLocaleString("id-ID")}
+
+Follow @Myperfumeee_
+Terima kasih atas pesanan Anda
+    `;
+    
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+    window.open(whatsappUrl, "_blank");
+  };
+  
   // --- LOGIKA TRANSAKSI (CHECKOUT) ---
-  const handleCheckout = async () => {
+  const handleCheckout = async (cashPaid: number, change: number) => {
     if (cart.length === 0) {
       toast.warning("Keranjang kosong");
       return;
     }
-    
-    // Validasi Metode Pembayaran
     if (!selectedMethodId) {
       toast.error("Metode pembayaran belum dipilih");
       return;
@@ -284,8 +337,8 @@ export default function PosPage() {
       })),
       customerId: selectedCustomer?.id || null,
       usePoints: usePoints,
-      userId: currentUser?.id || null, // Kirim ID kasir
-      paymentMethodId: selectedMethodId, // Kirim ID metode bayar
+      userId: currentUser?.id || null,
+      paymentMethodId: selectedMethodId,
     };
 
     try {
@@ -297,11 +350,16 @@ export default function PosPage() {
         )}. Stok telah diperbarui.`,
       });
 
+      // Panggil WhatsApp setelah sukses
+      openWhatsApp({ cashPaid, change });
+
       // Reset state
       setCart([]);
       setSelectedCustomer(null);
       setUsePoints(false);
-      setIsSheetOpen(false);
+      setIsSheetOpen(false); // Tutup sheet mobile
+      setIsPaymentModalOpen(false); // Tutup modal pembayaran
+      setCashPaid(""); // Kosongkan input tunai
       if (paymentMethods.length > 0) {
         setSelectedMethodId(paymentMethods[0].id); // Reset ke default
       }
@@ -318,12 +376,13 @@ export default function PosPage() {
 
   // --- RENDER UTAMA ---
   return (
-    <div className="h-screen w-screen">
+    <div className="h-full w-full">
       {/* 1. TAMPILAN DESKTOP (md:block) */}
       <div className="hidden h-full md:block">
         <ResizablePanelGroup direction="horizontal" className="h-full w-full">
+          
           {/* Panel Kiri: Daftar Produk */}
-          <ResizablePanel defaultSize={60} minSize={40}>
+          <ResizablePanel defaultSize={60} minSize={40} className="flex flex-col">
             <ProductListView
               products={filteredProducts}
               isLoading={isLoadingProducts}
@@ -332,9 +391,11 @@ export default function PosPage() {
               onAddToCart={addToCart}
             />
           </ResizablePanel>
+          
           <ResizableHandle withHandle />
+          
           {/* Panel Kanan: Keranjang */}
-          <ResizablePanel defaultSize={40} minSize={30}>
+          <ResizablePanel defaultSize={40} minSize={30} className="flex flex-col">
             <CartView
               cart={cart}
               selectedCustomer={selectedCustomer}
@@ -347,8 +408,7 @@ export default function PosPage() {
               isSubmitting={isSubmitting}
               onUpdateQuantity={updateQuantity}
               onRemoveFromCart={removeFromCart}
-              onCheckout={handleCheckout}
-              // Props baru untuk metode pembayaran
+              onOpenPaymentModal={() => setIsPaymentModalOpen(true)} // <-- Buka modal
               paymentMethods={paymentMethods}
               selectedMethodId={selectedMethodId}
               onSelectMethod={setSelectedMethodId}
@@ -368,7 +428,7 @@ export default function PosPage() {
           onAddToCart={addToCart}
         />
 
-        {/* Tombol Keranjang Mengambang (Floating Button) */}
+        {/* Tombol Keranjang Mengambang */}
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
             <Button className="fixed bottom-6 right-6 z-50 h-16 w-16 rounded-full shadow-lg p-0">
@@ -394,8 +454,7 @@ export default function PosPage() {
               isSubmitting={isSubmitting}
               onUpdateQuantity={updateQuantity}
               onRemoveFromCart={removeFromCart}
-              onCheckout={handleCheckout}
-              // Props baru untuk metode pembayaran
+              onOpenPaymentModal={() => setIsPaymentModalOpen(true)} // <-- Buka modal
               paymentMethods={paymentMethods}
               selectedMethodId={selectedMethodId}
               onSelectMethod={setSelectedMethodId}
@@ -403,6 +462,17 @@ export default function PosPage() {
           </SheetContent>
         </Sheet>
       </div>
+      
+      {/* 3. MODAL PEMBAYARAN & WHATSAPP (BARU) */}
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onOpenChange={setIsPaymentModalOpen}
+        totalAmount={cartTotal}
+        cashPaid={cashPaid}
+        onCashPaidChange={setCashPaid}
+        onSubmit={handleCheckout}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 }
@@ -424,9 +494,11 @@ function ProductListView({
   onAddToCart: (product: Product) => void;
 }) {
   return (
-    <div className="flex h-full flex-col p-4">
-      <h2 className="text-2xl font-bold mb-4">Daftar Produk</h2>
-      <div className="relative mb-4">
+    // PERBAIKAN SCROLL: ganti h-full menjadi flex-1 dan pindah padding
+    <div className="flex h-full min-h-0 flex-col">
+      <h2 className="text-2xl font-bold mb-4 px-4 pt-4">Daftar Produk</h2>
+      
+      <div className="relative mb-4 px-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           placeholder="Cari produk (nama atau kode)..."
@@ -435,13 +507,14 @@ function ProductListView({
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
-      <ScrollArea className="flex-1">
+      
+      <ScrollArea className="flex-1 min-h-0 px-4">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
             {products.map((product) => (
               <Card
                 key={product.id}
@@ -487,7 +560,7 @@ function CartView({
   isSubmitting,
   onUpdateQuantity,
   onRemoveFromCart,
-  onCheckout,
+  onOpenPaymentModal, // <-- DIUBAH
   // Props baru
   paymentMethods,
   selectedMethodId,
@@ -504,14 +577,15 @@ function CartView({
   isSubmitting: boolean;
   onUpdateQuantity: (productId: number, newQuantity: number) => void;
   onRemoveFromCart: (productId: number) => void;
-  onCheckout: () => void;
+  onOpenPaymentModal: () => void; // <-- DIUBAH
   // Tipe baru
   paymentMethods: PaymentMethod[];
   selectedMethodId: number | null;
   onSelectMethod: (id: number) => void;
 }) {
   return (
-    <div className="flex h-full flex-col">
+    // PERBAIKAN SCROLL: ganti h-full menjadi flex-1
+    <div className="flex flex-1 flex-col">
       {/* Bagian Atas (Pelanggan & Item) */}
       <div className="p-4">
         <h2 className="text-2xl font-bold mb-4">Keranjang</h2>
@@ -525,11 +599,7 @@ function CartView({
                   Poin: {selectedCustomer.points}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onSelectCustomer(null)}
-              >
+              <Button variant="ghost" size="icon" onClick={() => onSelectCustomer(null)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -650,7 +720,6 @@ function CartView({
             <span>Rp {cartTotal.toLocaleString("id-ID")}</span>
           </div>
           
-          {/* --- BARU: DROPDOWN METODE PEMBAYARAN --- */}
           <div className="space-y-2">
             <Label>Metode Pembayaran</Label>
             <Select
@@ -673,12 +742,11 @@ function CartView({
               </SelectContent>
             </Select>
           </div>
-          {/* ------------------------------------- */}
           
           <Button
             size="lg"
             className="w-full text-lg"
-            onClick={onCheckout}
+            onClick={onOpenPaymentModal} // <-- DIUBAH
             disabled={isSubmitting || cart.length === 0 || !selectedMethodId}
           >
             {isSubmitting ? (
@@ -689,6 +757,97 @@ function CartView({
         </div>
       </div>
     </div>
+  );
+}
+
+// ====================================================================
+// ============= KOMPONEN BARU: Modal Pembayaran ======================
+// ====================================================================
+function PaymentModal({
+  isOpen,
+  onOpenChange,
+  totalAmount,
+  cashPaid,
+  onCashPaidChange,
+  onSubmit,
+  isSubmitting,
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  totalAmount: number;
+  cashPaid: string;
+  onCashPaidChange: (value: string) => void;
+  onSubmit: (cashPaid: number, change: number) => void;
+  isSubmitting: boolean;
+}) {
+  
+  const cashAmount = Number(cashPaid) || 0;
+  const change = cashAmount > totalAmount ? cashAmount - totalAmount : 0;
+  const isCashInsufficient = cashAmount < totalAmount;
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (isCashInsufficient) {
+      toast.error("Uang tunai kurang dari total belanja.");
+      return;
+    }
+    onSubmit(cashAmount, change);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Konfirmasi Pembayaran</DialogTitle>
+          <DialogDescription>
+            Masukkan jumlah uang tunai yang diterima dari pelanggan.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="flex justify-between items-center">
+              <Label className="text-lg font-medium">Total Belanja</Label>
+              <span className="text-2xl font-bold">
+                Rp {totalAmount.toLocaleString("id-ID")}
+              </span>
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="cash-paid" className="text-base">
+                Jumlah Tunai Diterima
+              </Label>
+              <Input
+                id="cash-paid"
+                type="number"
+                value={cashPaid}
+                onChange={(e) => onCashPaidChange(e.target.value)}
+                placeholder="cth: 100000"
+                className="text-lg"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <Label className="text-lg font-medium">Kembalian</Label>
+              <span className="text-2xl font-bold text-blue-600">
+                Rp {change.toLocaleString("id-ID")}
+              </span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="submit"
+              className="w-full text-lg"
+              disabled={isSubmitting || isCashInsufficient}
+            >
+              {isSubmitting ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : null}
+              Konfirmasi & Kirim Struk WA
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

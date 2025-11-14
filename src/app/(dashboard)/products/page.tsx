@@ -260,7 +260,7 @@ export default function ProductsPage() {
 
   // --- RENDER (JSX) ---
   return (
-    <div>
+    <div className="h-full overflow-auto p-4 lg:p-6">
       {/* Header Halaman */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
         <h1 className="text-3xl font-bold">Manajemen Produk</h1>
