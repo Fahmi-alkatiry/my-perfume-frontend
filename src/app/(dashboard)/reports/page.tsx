@@ -94,6 +94,7 @@ export default function ReportsPage() {
         });
         setTransactions(response.data.data);
         setPaginationInfo(response.data.pagination);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         const errorMessage =
           error.response?.data?.error || "Gagal mengambil riwayat transaksi";

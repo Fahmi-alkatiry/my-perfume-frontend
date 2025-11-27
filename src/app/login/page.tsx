@@ -50,7 +50,7 @@ export default function LoginPage() {
       // 3. Arahkan ke halaman dashboard
       // Kita gunakan window.location.href agar me-reload penuh
       // Ini penting agar 'axios interceptor' (di langkah 3) bisa berjalan
-      window.location.href = "/dashboard"; 
+      window.location.href = "/pos"; 
       
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {

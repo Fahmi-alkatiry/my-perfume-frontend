@@ -1,8 +1,7 @@
 // frontend/src/app/(dashboard)/pos/page.tsx
-
 "use client";
 
-import { useState, useEffect, useMemo, FormEvent } from "react"; // Impor FormEvent
+import { useState, useEffect, useMemo, FormEvent } from "react";
 import axios from "@/lib/axios"; // Menggunakan instance axios yang sudah dikonfigurasi
 import { toast } from "sonner";
 import {
@@ -46,7 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// --- Impor BARU untuk Modal Pembayaran ---
+// --- Impor untuk Modal Pembayaran ---
 import {
   Dialog,
   DialogContent,
@@ -55,7 +54,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-// ----------------------------------------
+// ---------------------------------
 import {
   Loader2,
   Plus,
@@ -111,27 +110,40 @@ const API_URL_PAYMENT_METHODS = "/api/payment-methods";
 export default function PosPage() {
   // --- State Utama ---
   const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-
+  
   // State untuk User
   const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
   const [usePoints, setUsePoints] = useState(false);
-
+  
   // State untuk Metode Pembayaran
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
-
+  
   // --- State untuk Modal Pembayaran ---
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [cashPaid, setCashPaid] = useState("");
-
+  
+ const [cart, setCart] = useState<CartItem[]>(() => {
+    // Pastikan kode ini hanya berjalan di browser (bukan server)
+    if (typeof window === "undefined") {
+      return [];
+    }
+    
+    try {
+      const savedCart = localStorage.getItem("myPerfumeCart");
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (error) {
+      console.error("Gagal memuat keranjang:", error);
+      return [];
+    }
+  });
   // --- LOGIKA FETCH DATA ---
   const fetchProducts = async () => {
     setIsLoadingProducts(true);
@@ -148,6 +160,7 @@ export default function PosPage() {
   };
 
   useEffect(() => {
+
     const fetchCurrentUser = async () => {
       try {
         const res = await axios.get(API_URL_AUTH_ME);
@@ -174,6 +187,12 @@ export default function PosPage() {
     fetchCurrentUser();
     fetchPaymentMethods();
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("myPerfumeCart", JSON.stringify(cart));
+    }
+  }, [cart]);
 
   // --- LOGIKA FILTER PRODUK (LOKAL) ---
   const filteredProducts = useMemo(() => {
@@ -269,6 +288,10 @@ export default function PosPage() {
       return;
     }
 
+    const pointsEarned = Math.floor(cartTotal / 30000);
+    const pointsUsed = usePoints ? 10 : 0;
+    const finalPoints = selectedCustomer.points - pointsUsed + pointsEarned;
+
     const now = new Date();
     const dateStr = now.toLocaleDateString("id-ID", {
       day: "numeric",
@@ -287,7 +310,7 @@ export default function PosPage() {
         ).toLocaleString("id-ID")}`;
       })
       .join("\n");
-
+      
     let phone = selectedCustomer.phoneNumber.trim();
     if (phone.startsWith("0")) {
       phone = "62" + phone.substring(1);
@@ -299,7 +322,7 @@ Jl. Raya panglegur
 Kota Pamekasan
 Tanggal : ${dateStr} pukul ${timeStr}
 Nama    : ${selectedCustomer.name}
-Poin    : ${selectedCustomer.points}
+Poin    : ${finalPoints}
 
 *Detail Pesanan:*
 ${orderDetails}
@@ -313,7 +336,8 @@ Terima kasih atas pesanan Anda
     `;
     
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+    const whatsappUrl = `https://web.whatsapp.com/send?phone=${phone}&text=${encodedMessage}`;
+    
     window.open(whatsappUrl, "_blank");
   };
   
@@ -350,22 +374,24 @@ Terima kasih atas pesanan Anda
         )}. Stok telah diperbarui.`,
       });
 
-      // Panggil WhatsApp setelah sukses
       openWhatsApp({ cashPaid, change });
 
       // Reset state
-      setCart([]);
+     setCart([]);
+      localStorage.removeItem("myPerfumeCart"); // <-- TAMBAHKAN BARIS INI
+      setSelectedCustomer(null);
       setSelectedCustomer(null);
       setUsePoints(false);
-      setIsSheetOpen(false); // Tutup sheet mobile
-      setIsPaymentModalOpen(false); // Tutup modal pembayaran
-      setCashPaid(""); // Kosongkan input tunai
+      setIsSheetOpen(false);
+      setIsPaymentModalOpen(false);
+      setCashPaid("");
       if (paymentMethods.length > 0) {
-        setSelectedMethodId(paymentMethods[0].id); // Reset ke default
+        setSelectedMethodId(paymentMethods[0].id);
       }
       
-      fetchProducts(); // Refresh stok produk di UI
+      fetchProducts();
       
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || "Terjadi kesalahan";
       toast.error("Transaksi Gagal", { description: errorMessage });
@@ -382,7 +408,8 @@ Terima kasih atas pesanan Anda
         <ResizablePanelGroup direction="horizontal" className="h-full w-full">
           
           {/* Panel Kiri: Daftar Produk */}
-          <ResizablePanel defaultSize={60} minSize={40} className="flex flex-col">
+          {/* --- PERBAIKAN SCROLL: Tambahkan className --- */}
+          <ResizablePanel defaultSize={60} minSize={40} className="flex flex-col h-full min-h-0">
             <ProductListView
               products={filteredProducts}
               isLoading={isLoadingProducts}
@@ -395,7 +422,8 @@ Terima kasih atas pesanan Anda
           <ResizableHandle withHandle />
           
           {/* Panel Kanan: Keranjang */}
-          <ResizablePanel defaultSize={40} minSize={30} className="flex flex-col">
+          {/* --- PERBAIKAN SCROLL: Tambahkan className --- */}
+          <ResizablePanel defaultSize={40} minSize={30} className="flex flex-col h-full min-h-0">
             <CartView
               cart={cart}
               selectedCustomer={selectedCustomer}
@@ -408,7 +436,7 @@ Terima kasih atas pesanan Anda
               isSubmitting={isSubmitting}
               onUpdateQuantity={updateQuantity}
               onRemoveFromCart={removeFromCart}
-              onOpenPaymentModal={() => setIsPaymentModalOpen(true)} // <-- Buka modal
+              onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
               paymentMethods={paymentMethods}
               selectedMethodId={selectedMethodId}
               onSelectMethod={setSelectedMethodId}
@@ -418,7 +446,7 @@ Terima kasih atas pesanan Anda
       </div>
 
       {/* 2. TAMPILAN MOBILE (md:hidden) */}
-      <div className="h-full md:hidden">
+      <div className="h-full md:hidden flex flex-col">
         {/* Daftar produk full screen */}
         <ProductListView
           products={filteredProducts}
@@ -440,8 +468,8 @@ Terima kasih atas pesanan Anda
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent className="flex flex-col p-0">
-            {/* Tampilkan UI Keranjang di dalam Sheet */}
+          {/* --- PERBAIKAN SCROLL: Tambahkan className --- */}
+          <SheetContent className="flex flex-col p-0 h-full min-h-0">
             <CartView
               cart={cart}
               selectedCustomer={selectedCustomer}
@@ -454,7 +482,7 @@ Terima kasih atas pesanan Anda
               isSubmitting={isSubmitting}
               onUpdateQuantity={updateQuantity}
               onRemoveFromCart={removeFromCart}
-              onOpenPaymentModal={() => setIsPaymentModalOpen(true)} // <-- Buka modal
+              onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
               paymentMethods={paymentMethods}
               selectedMethodId={selectedMethodId}
               onSelectMethod={setSelectedMethodId}
@@ -463,7 +491,7 @@ Terima kasih atas pesanan Anda
         </Sheet>
       </div>
       
-      {/* 3. MODAL PEMBAYARAN & WHATSAPP (BARU) */}
+      {/* 3. MODAL PEMBAYARAN & WHATSAPP */}
       <PaymentModal
         isOpen={isPaymentModalOpen}
         onOpenChange={setIsPaymentModalOpen}
@@ -494,8 +522,8 @@ function ProductListView({
   onAddToCart: (product: Product) => void;
 }) {
   return (
-    // PERBAIKAN SCROLL: ganti h-full menjadi flex-1 dan pindah padding
-    <div className="flex h-full min-h-0 flex-col">
+    // --- PERBAIKAN SCROLL: Ganti h-full -> flex-1, Pindah padding ---
+    <div className="flex flex-1 flex-col min-h-0">
       <h2 className="text-2xl font-bold mb-4 px-4 pt-4">Daftar Produk</h2>
       
       <div className="relative mb-4 px-4">
@@ -560,8 +588,7 @@ function CartView({
   isSubmitting,
   onUpdateQuantity,
   onRemoveFromCart,
-  onOpenPaymentModal, // <-- DIUBAH
-  // Props baru
+  onOpenPaymentModal,
   paymentMethods,
   selectedMethodId,
   onSelectMethod,
@@ -577,17 +604,16 @@ function CartView({
   isSubmitting: boolean;
   onUpdateQuantity: (productId: number, newQuantity: number) => void;
   onRemoveFromCart: (productId: number) => void;
-  onOpenPaymentModal: () => void; // <-- DIUBAH
-  // Tipe baru
+  onOpenPaymentModal: () => void;
   paymentMethods: PaymentMethod[];
   selectedMethodId: number | null;
   onSelectMethod: (id: number) => void;
 }) {
   return (
-    // PERBAIKAN SCROLL: ganti h-full menjadi flex-1
-    <div className="flex flex-1 flex-col">
+    // --- PERBAIKAN SCROLL: Ganti h-full -> flex-1 ---
+    <div className="flex flex-1 flex-col min-h-0">
       {/* Bagian Atas (Pelanggan & Item) */}
-      <div className="p-4">
+      <div className="p-4 border-b shrink-0">
         <h2 className="text-2xl font-bold mb-4">Keranjang</h2>
         <div className="mb-4">
           <Label className="mb-2 block">Pelanggan</Label>
@@ -609,7 +635,7 @@ function CartView({
         </div>
       </div>
 
-      <ScrollArea className="flex-1 px-4">
+      <ScrollArea className="flex-1 min-h-0 px-4">
         <Table>
           <TableHeader>
             <TableRow>
@@ -685,9 +711,9 @@ function CartView({
       </ScrollArea>
       
       {/* Bagian Bawah (Total & Bayar) */}
-      <div className="p-4 mt-auto border-t">
+      <div className="p-4 border-t shrink-0 bg-white">
         <div className="space-y-4">
-          <div className="flex justify-between">
+          <div className="flex justify-between mb-2">
             <span className="text-muted-foreground">Subtotal</span>
             <span>Rp {subtotal.toLocaleString("id-ID")}</span>
           </div>
@@ -746,7 +772,7 @@ function CartView({
           <Button
             size="lg"
             className="w-full text-lg"
-            onClick={onOpenPaymentModal} // <-- DIUBAH
+            onClick={onOpenPaymentModal}
             disabled={isSubmitting || cart.length === 0 || !selectedMethodId}
           >
             {isSubmitting ? (

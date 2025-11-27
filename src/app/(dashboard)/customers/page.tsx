@@ -11,6 +11,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 // Komponen UI
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+// --- Tipe Data User ---
+interface LoggedInUser {
+  id: number;
+  name: string;
+  role: "ADMIN" | "CASHIER";
+}
+
 // --- UBAH: Tipe Data ---
 interface Customer {
   id: number;
@@ -78,6 +86,7 @@ const defaultFormState = {
 
 // --- UBAH: API URL ---
 const API_URL = "http://localhost:5000/api/customers";
+const API_URL_AUTH_ME = "/api/auth/me";
 // --------------------
 
 export default function CustomersPage() {
@@ -99,6 +108,21 @@ export default function CustomersPage() {
 
   const [formState, setFormState] = useState(defaultFormState);
 
+   // State untuk user
+    const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(null);
+
+
+
+   const fetchCurrentUser = async () => {
+      try {
+        const res = await axios.get(API_URL_AUTH_ME);
+        setCurrentUser(res.data);
+      } catch (error) {
+        console.error(error);
+        toast.error("Gagal memuat data user");
+      }
+    };
+
   // --- UBAH: Fungsi Fetch ---
   const fetchCustomers = async () => {
     setIsLoading(true);
@@ -117,7 +141,9 @@ export default function CustomersPage() {
   // -------------------------
 
   useEffect(() => {
+    fetchCurrentUser();
     fetchCustomers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiQuery]);
 
   // --- FUNGSI DIALOG (UBAH NAMA STATE) ---
@@ -300,9 +326,12 @@ export default function CustomersPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(customer)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleOpenDeleteDialog(customer)}>
+                        {currentUser?.role === "ADMIN" && <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteDialog(customer)}>
                           <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </Button>}
+                        {/* <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleOpenDeleteDialog(customer)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button> */}
                       </TableCell>
                     </TableRow>
                   ))
