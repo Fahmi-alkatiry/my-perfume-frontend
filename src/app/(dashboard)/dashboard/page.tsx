@@ -5,12 +5,7 @@ import { useEffect, useState } from "react";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,12 +57,14 @@ interface TopProductData {
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
-  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
-  
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>(
+    []
+  );
+
   // State untuk Grafik
   const [salesTrend, setSalesTrend] = useState<SalesTrendData[]>([]);
   const [topProducts, setTopProducts] = useState<TopProductData[]>([]);
-  
+
   const [isLoading, setIsLoading] = useState(true);
 
   const formatCurrency = (amount: number) => {
@@ -84,18 +81,17 @@ export default function DashboardPage() {
         setIsLoading(true);
         // Panggil 3 API sekaligus
         const [summaryRes, lowStockRes, chartsRes] = await Promise.all([
-          axios.get("/api/reports/summary"),
-          axios.get("/api/reports/low-stock"),
-          axios.get("/api/reports/charts"), // <-- Panggil API Grafik
+          axios.get("/reports/summary"),
+          axios.get("/reports/low-stock"),
+          axios.get("/reports/charts"), // <-- Panggil API Grafik
         ]);
 
         setSummary(summaryRes.data);
         setLowStockProducts(lowStockRes.data);
-        
+
         // Set Data Grafik
         setSalesTrend(chartsRes.data.salesTrend);
         setTopProducts(chartsRes.data.topProducts);
-
       } catch (error: any) {
         console.error(error);
         // Jangan tampilkan toast error jika hanya masalah permission (biar user experience kasir tetap ok)
@@ -124,31 +120,43 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Penjualan Hari Ini</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Penjualan Hari Ini
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(summary?.todayRevenue || 0)}</div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(summary?.todayRevenue || 0)}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Profit Hari Ini</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Profit Hari Ini
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(summary?.todayProfit || 0)}</div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(summary?.todayProfit || 0)}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Transaksi Hari Ini</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Transaksi Hari Ini
+            </CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+{summary?.todayTransactions || 0}</div>
+            <div className="text-2xl font-bold">
+              +{summary?.todayTransactions || 0}
+            </div>
           </CardContent>
         </Card>
 
@@ -158,14 +166,15 @@ export default function DashboardPage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+{summary?.todayItemsSold || 0}</div>
+            <div className="text-2xl font-bold">
+              +{summary?.todayItemsSold || 0}
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* --- BAGIAN 2: GRAFIK (BARU) --- */}
       <div className="grid gap-4 my-2 md:grid-cols-2 lg:grid-cols-7">
-        
         {/* Grafik Garis: Tren Penjualan (Lebar: 4 kolom) */}
         <Card className="col-span-4">
           <CardHeader>
@@ -177,29 +186,33 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={salesTrend}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis 
-                    dataKey="date" 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickMargin={8} 
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
                     fontSize={12}
                   />
-                  <YAxis 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(value) => `Rp${value / 1000}k`} 
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `Rp${value / 1000}k`}
                     fontSize={12}
                   />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "none",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="total" 
-                    stroke="#8884d8" 
-                    strokeWidth={2} 
-                    activeDot={{ r: 6 }} 
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#8884d8"
+                    strokeWidth={2}
+                    activeDot={{ r: 6 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -217,19 +230,28 @@ export default function DashboardPage() {
             <div className="h-[300px] w-full">
               {topProducts.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={topProducts} layout="vertical" margin={{ left: 0 }}>
+                  <BarChart
+                    data={topProducts}
+                    layout="vertical"
+                    margin={{ left: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" hide />
-                    <YAxis 
-                      dataKey="name" 
-                      type="category" 
-                      width={100} 
-                      tickLine={false} 
-                      axisLine={false} 
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={100}
+                      tickLine={false}
+                      axisLine={false}
                       fontSize={12}
                     />
-                    <Tooltip cursor={{fill: 'transparent'}} />
-                    <Bar dataKey="sales" fill="#82ca9d" radius={[0, 4, 4, 0]} barSize={32} />
+                    <Tooltip cursor={{ fill: "transparent" }} />
+                    <Bar
+                      dataKey="sales"
+                      fill="#82ca9d"
+                      radius={[0, 4, 4, 0]}
+                      barSize={32}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -266,13 +288,16 @@ export default function DashboardPage() {
                       className="flex justify-between items-center border-b pb-2 last:border-0"
                     >
                       <div>
-                        <Link href="/products" className="font-medium hover:underline">
+                        <Link
+                          href="/products"
+                          className="font-medium hover:underline"
+                        >
                           {product.name}
                         </Link>
                         <p className="text-xs text-muted-foreground">
                           {product.productCode}
-                          </p>
-                        </div>
+                        </p>
+                      </div>
                       <div className="text-right">
                         <span className="font-bold text-lg text-destructive">
                           {product.stock}
@@ -301,7 +326,7 @@ function DashboardLoadingSkeleton() {
   return (
     <div className="space-y-6">
       <Skeleton className="h-9 w-64 mb-4" />
-      
+
       {/* Stat Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
@@ -310,7 +335,9 @@ function DashboardLoadingSkeleton() {
               <Skeleton className="h-5 w-32" />
               <Skeleton className="h-4 w-4" />
             </CardHeader>
-            <CardContent><Skeleton className="h-8 w-24" /></CardContent>
+            <CardContent>
+              <Skeleton className="h-8 w-24" />
+            </CardContent>
           </Card>
         ))}
       </div>

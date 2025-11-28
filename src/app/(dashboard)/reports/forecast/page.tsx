@@ -53,7 +53,7 @@ export default function ForecastPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axios.get("/api/reports/forecast");
+        const res = await axios.get("/reports/forecast");
         setData(res.data);
       } catch (error) {
         toast.error("Gagal memuat data peramalan");

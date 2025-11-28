@@ -98,11 +98,11 @@ interface PaymentMethod {
 }
 
 // --- Konstanta API ---
-const API_URL_PRODUCTS = "/api/products";
-const API_URL_CUSTOMERS = "/api/customers";
-const API_URL_TRANSACTIONS = "/api/transactions";
-const API_URL_AUTH_ME = "/api/auth/me";
-const API_URL_PAYMENT_METHODS = "/api/payment-methods";
+const API_URL_PRODUCTS = "/products";
+const API_URL_CUSTOMERS = "/customers";
+const API_URL_TRANSACTIONS = "/transactions";
+const API_URL_AUTH_ME = "/auth/me";
+const API_URL_PAYMENT_METHODS = "/payment-methods";
 
 // ====================================================================
 // ================= Halaman Utama POS (Induk) ========================

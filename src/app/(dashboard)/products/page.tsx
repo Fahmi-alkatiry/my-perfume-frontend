@@ -102,8 +102,8 @@ const defaultFormState = {
   minimumStock: 5,
 };
 
-const API_URL = "/api/products"; // Path relatif
-const API_URL_AUTH_ME = "/api/auth/me";
+const API_URL = "/products"; // Path relatif
+const API_URL_AUTH_ME = "/auth/me";
 
 // ====================================================================
 // ================= Halaman Utama Produk =============================
