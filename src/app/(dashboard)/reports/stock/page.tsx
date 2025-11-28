@@ -64,7 +64,7 @@ interface PaginationInfo {
 }
 
 // --- API URL ---
-const API_URL = "http://localhost:5000/api/reports/stock-history";
+const API_URL = "/reports/stock-history";
 
 // ====================================================================
 // ================= Halaman Riwayat Stok =============================

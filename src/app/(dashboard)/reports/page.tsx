@@ -54,7 +54,7 @@ interface PaginationInfo {
 }
 
 // --- API URL ---
-const API_URL = "http://localhost:5000/api/reports/transactions";
+const API_URL = "/reports/transactions";
 
 // ====================================================================
 // ================= Halaman Riwayat Transaksi ========================

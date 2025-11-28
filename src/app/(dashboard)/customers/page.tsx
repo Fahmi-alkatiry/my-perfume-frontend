@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // frontend/src/app/(dashboard)/customers/page.tsx
 
 "use client";
@@ -85,8 +86,8 @@ const defaultFormState = {
 };
 
 // --- KONSTANTA API (Relative Path) ---
-const API_URL = "/api/customers"; // <-- PERBAIKAN PENTING
-const API_URL_AUTH_ME = "/api/auth/me";
+const API_URL = "/customers"; // <-- PERBAIKAN PENTING
+const API_URL_AUTH_ME = "/auth/me";
 
 export default function CustomersPage() {
   // State Data

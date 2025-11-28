@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import {
   ChevronLeft,
   ChevronRight,
-  Loader2,
   Pencil,
   Trash2,
   PlusSquare,

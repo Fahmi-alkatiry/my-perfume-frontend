@@ -5,7 +5,7 @@
 import { useState, useEffect, FormEvent } from "react";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
-import { Loader2, Pencil, Trash2 } from "lucide-react";
+import {  Pencil, Trash2 } from "lucide-react";
 
 // Komponen UI
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,7 @@ const defaultFormState = {
 };
 
 // --- UBAH: API URL ---
-const API_URL = "http://localhost:5000/api/payment-methods";
+const API_URL = "/payment-methods";
 
 export default function PaymentMethodsPage() {
   // --- UBAH: State Utama ---
