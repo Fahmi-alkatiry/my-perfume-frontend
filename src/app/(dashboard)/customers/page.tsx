@@ -85,7 +85,7 @@ const defaultFormState = {
 // -----------------------
 
 // --- UBAH: API URL ---
-const API_URL = "http://localhost:5000/api/customers";
+const API_URL = "/api/customers";
 const API_URL_AUTH_ME = "/api/auth/me";
 // --------------------
 
