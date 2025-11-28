@@ -114,28 +114,28 @@ export default function PosPage() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  
+
   // State untuk User
   const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
   const [usePoints, setUsePoints] = useState(false);
-  
+
   // State untuk Metode Pembayaran
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
-  
+
   // --- State untuk Modal Pembayaran ---
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [cashPaid, setCashPaid] = useState("");
-  
- const [cart, setCart] = useState<CartItem[]>(() => {
+
+  const [cart, setCart] = useState<CartItem[]>(() => {
     // Pastikan kode ini hanya berjalan di browser (bukan server)
     if (typeof window === "undefined") {
       return [];
     }
-    
+
     try {
       const savedCart = localStorage.getItem("myPerfumeCart");
       return savedCart ? JSON.parse(savedCart) : [];
@@ -160,7 +160,6 @@ export default function PosPage() {
   };
 
   useEffect(() => {
-
     const fetchCurrentUser = async () => {
       try {
         const res = await axios.get(API_URL_AUTH_ME);
@@ -310,12 +309,12 @@ export default function PosPage() {
         ).toLocaleString("id-ID")}`;
       })
       .join("\n");
-      
+
     let phone = selectedCustomer.phoneNumber.trim();
     if (phone.startsWith("0")) {
       phone = "62" + phone.substring(1);
     }
-    
+
     const message = `
 *My Perfume*
 Jl. Raya panglegur
@@ -334,13 +333,17 @@ ${orderDetails}
 Follow @Myperfumeee_
 Terima kasih atas pesanan Anda
     `;
-    
+
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://web.whatsapp.com/send?phone=${phone}&text=${encodedMessage}`;
-    
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    const whatsappUrl = isMobile
+      ? `https://wa.me/${phone}?text=${encodedMessage}`
+      : `https://web.whatsapp.com/send?phone=${phone}&text=${encodedMessage}`;
+
     window.open(whatsappUrl, "_blank");
   };
-  
+
   // --- LOGIKA TRANSAKSI (CHECKOUT) ---
   const handleCheckout = async (cashPaid: number, change: number) => {
     if (cart.length === 0) {
@@ -377,7 +380,7 @@ Terima kasih atas pesanan Anda
       openWhatsApp({ cashPaid, change });
 
       // Reset state
-     setCart([]);
+      setCart([]);
       localStorage.removeItem("myPerfumeCart"); // <-- TAMBAHKAN BARIS INI
       setSelectedCustomer(null);
       setSelectedCustomer(null);
@@ -388,10 +391,10 @@ Terima kasih atas pesanan Anda
       if (paymentMethods.length > 0) {
         setSelectedMethodId(paymentMethods[0].id);
       }
-      
+
       fetchProducts();
-      
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || "Terjadi kesalahan";
       toast.error("Transaksi Gagal", { description: errorMessage });
@@ -406,10 +409,13 @@ Terima kasih atas pesanan Anda
       {/* 1. TAMPILAN DESKTOP (md:block) */}
       <div className="hidden h-full md:block">
         <ResizablePanelGroup direction="horizontal" className="h-full w-full">
-          
           {/* Panel Kiri: Daftar Produk */}
           {/* --- PERBAIKAN SCROLL: Tambahkan className --- */}
-          <ResizablePanel defaultSize={60} minSize={40} className="flex flex-col h-full min-h-0">
+          <ResizablePanel
+            defaultSize={60}
+            minSize={40}
+            className="flex flex-col h-full min-h-0"
+          >
             <ProductListView
               products={filteredProducts}
               isLoading={isLoadingProducts}
@@ -418,12 +424,16 @@ Terima kasih atas pesanan Anda
               onAddToCart={addToCart}
             />
           </ResizablePanel>
-          
+
           <ResizableHandle withHandle />
-          
+
           {/* Panel Kanan: Keranjang */}
           {/* --- PERBAIKAN SCROLL: Tambahkan className --- */}
-          <ResizablePanel defaultSize={40} minSize={30} className="flex flex-col h-full min-h-0">
+          <ResizablePanel
+            defaultSize={40}
+            minSize={30}
+            className="flex flex-col h-full min-h-0"
+          >
             <CartView
               cart={cart}
               selectedCustomer={selectedCustomer}
@@ -490,7 +500,7 @@ Terima kasih atas pesanan Anda
           </SheetContent>
         </Sheet>
       </div>
-      
+
       {/* 3. MODAL PEMBAYARAN & WHATSAPP */}
       <PaymentModal
         isOpen={isPaymentModalOpen}
@@ -525,7 +535,7 @@ function ProductListView({
     // --- PERBAIKAN SCROLL: Ganti h-full -> flex-1, Pindah padding ---
     <div className="flex flex-1 flex-col min-h-0">
       <h2 className="text-2xl font-bold mb-4 px-4 pt-4">Daftar Produk</h2>
-      
+
       <div className="relative mb-4 px-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
@@ -535,7 +545,7 @@ function ProductListView({
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
-      
+
       <ScrollArea className="flex-1 min-h-0 px-4">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
@@ -625,7 +635,11 @@ function CartView({
                   Poin: {selectedCustomer.points}
                 </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => onSelectCustomer(null)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onSelectCustomer(null)}
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -689,9 +703,9 @@ function CartView({
                   </TableCell>
                   <TableCell className="text-right">
                     Rp{" "}
-                    {(
-                      Number(item.sellingPrice) * item.quantity
-                    ).toLocaleString("id-ID")}
+                    {(Number(item.sellingPrice) * item.quantity).toLocaleString(
+                      "id-ID"
+                    )}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -709,7 +723,7 @@ function CartView({
           </TableBody>
         </Table>
       </ScrollArea>
-      
+
       {/* Bagian Bawah (Total & Bayar) */}
       <div className="p-4 border-t shrink-0 bg-white">
         <div className="space-y-4">
@@ -717,7 +731,7 @@ function CartView({
             <span className="text-muted-foreground">Subtotal</span>
             <span>Rp {subtotal.toLocaleString("id-ID")}</span>
           </div>
-          
+
           {selectedCustomer && selectedCustomer.points >= 10 && (
             <div className="flex items-center justify-between">
               <Label htmlFor="use-points-switch" className="flex flex-col">
@@ -733,7 +747,7 @@ function CartView({
               />
             </div>
           )}
-          
+
           {discountAmount > 0 && (
             <div className="flex justify-between text-destructive">
               <span className="font-medium">Diskon Poin</span>
@@ -745,7 +759,7 @@ function CartView({
             <span>Total</span>
             <span>Rp {cartTotal.toLocaleString("id-ID")}</span>
           </div>
-          
+
           <div className="space-y-2">
             <Label>Metode Pembayaran</Label>
             <Select
@@ -757,7 +771,9 @@ function CartView({
               </SelectTrigger>
               <SelectContent>
                 {paymentMethods.length === 0 ? (
-                  <SelectItem value="loading" disabled>Memuat...</SelectItem>
+                  <SelectItem value="loading" disabled>
+                    Memuat...
+                  </SelectItem>
                 ) : (
                   paymentMethods.map((method) => (
                     <SelectItem key={method.id} value={method.id.toString()}>
@@ -768,7 +784,7 @@ function CartView({
               </SelectContent>
             </Select>
           </div>
-          
+
           <Button
             size="lg"
             className="w-full text-lg"
@@ -806,7 +822,6 @@ function PaymentModal({
   onSubmit: (cashPaid: number, change: number) => void;
   isSubmitting: boolean;
 }) {
-  
   const cashAmount = Number(cashPaid) || 0;
   const change = cashAmount > totalAmount ? cashAmount - totalAmount : 0;
   const isCashInsufficient = cashAmount < totalAmount;
@@ -904,7 +919,7 @@ function CustomerCombobox({
         setIsLoading(false);
       }
     };
-    
+
     const timer = setTimeout(() => {
       fetchCustomers();
     }, 300);
@@ -950,9 +965,7 @@ function CustomerCombobox({
                     setOpen(false);
                   }}
                 >
-                  <Check
-                    className={"mr-2 h-4 w-4 opacity-0"}
-                  />
+                  <Check className={"mr-2 h-4 w-4 opacity-0"} />
                   <div>
                     <p>{customer.name}</p>
                     <p className="text-xs text-muted-foreground">
