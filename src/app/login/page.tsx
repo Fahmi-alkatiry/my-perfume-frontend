@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
-const API_URL_LOGIN = "http://localhost:5000/api/auth/login";
+const API_URL_LOGIN = "https://api.myperfumee.my.id/api/auth/login";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");

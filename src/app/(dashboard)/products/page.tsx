@@ -185,7 +185,16 @@ export default function ProductsPage() {
 
   const handleOpenEditDialog = (product: Product) => {
     setProductToEdit(product);
-    setFormState(product);
+   setFormState({
+      name: product.name,
+      type: product.type,
+      stock: product.stock,
+      purchasePrice: product.purchasePrice,
+      sellingPrice: product.sellingPrice,
+      productCode: product.productCode,
+      description: product.description || "", // Jaga-jaga jika undefined
+      minimumStock: product.minimumStock || 0, // Jaga-jaga jika undefined
+    });
     setIsFormOpen(true);
   };
 
