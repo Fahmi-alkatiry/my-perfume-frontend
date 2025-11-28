@@ -5,14 +5,7 @@ import Cookies from "js-cookie";
 // 1. Buat instance axios
 // https://api.myperfumee.my.id/
 // http://localhost:5000
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-const axiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-
-}
-
-);
+const axiosInstance = axios.create( { baseURL: "http://api.myperfumee.my.id" });
 
 // 2. Buat Interceptor (Middleware untuk Axios)
 axiosInstance.interceptors.request.use(
