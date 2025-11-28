@@ -3,7 +3,7 @@
 
 import { useState, FormEvent } from "react";
 import axios from "axios";
-import { useRouter } from "next/navigation";
+// import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Cookies from "js-cookie"; // <-- Impor js-cookie
 
@@ -26,7 +26,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  // const router = useRouter();
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();

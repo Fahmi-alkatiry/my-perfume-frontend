@@ -140,7 +140,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     const checkAuthAndRole = async () => {
       try {
         setIsCheckingAuth(true);
-        const res = await axios.get("/api/auth/me");
+        const res = await axios.get("/auth/me");
         const user: LoggedInUser = res.data;
         setCurrentUser(user);
 
