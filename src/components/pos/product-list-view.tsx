@@ -10,16 +10,18 @@ import { Button } from "@/components/ui/button";
 interface Product {
   id: number;
   name: string;
-  sellingPrice: number;
+  type: "PERFUME" | "BOTTLE"; // <-- Tambahkan ini
   stock: number;
-  productCode: string; // Pastikan ini ada
+  purchasePrice: number;      // <-- Tambahkan ini
+  sellingPrice: number;
+  productCode: string;
 }
-
 interface ProductListViewProps {
   products: Product[];
   isLoading: boolean;
   searchTerm: string;
   onSearchChange: (value: string) => void;
+  
   onAddToCart: (product: Product) => void;
 }
 
