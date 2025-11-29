@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // frontend/src/app/(dashboard)/customers/page.tsx
 
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
-import axios from "@/lib/axios"; // Pastikan import dari @/lib/axios
+import axios from "@/lib/axios";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,6 +11,7 @@ import {
   Trash2,
   Search,
   Plus,
+  History, // <-- IKON BARU
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -56,20 +56,33 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area"; // <-- ScrollArea
 
-// --- Tipe Data User ---
+// --- Tipe Data ---
 interface LoggedInUser {
   id: number;
   name: string;
   role: "ADMIN" | "CASHIER";
 }
 
-// --- Tipe Data Customer ---
 interface Customer {
   id: number;
   name: string;
   phoneNumber: string;
   points: number;
+}
+
+// --- Tipe Data Riwayat Belanja ---
+interface PurchaseHistory {
+  id: number;
+  createdAt: string;
+  finalAmount: number;
+  details: {
+    quantity: number;
+    product: {
+      name: string;
+    };
+  }[];
 }
 
 interface PaginationInfo {
@@ -79,55 +92,43 @@ interface PaginationInfo {
   limit: number;
 }
 
-// --- State Form default ---
-const defaultFormState = {
-  name: "",
-  phoneNumber: "",
-};
-
-// --- KONSTANTA API (Relative Path) ---
-const API_URL = "/customers"; // <-- PERBAIKAN PENTING
+const defaultFormState = { name: "", phoneNumber: "" };
+const API_URL = "/customers";
 const API_URL_AUTH_ME = "/auth/me";
 
 export default function CustomersPage() {
-  // State Data
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(null);
 
-  // State Dialog
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
-  // State Aksi
+  // --- STATE BARU: RIWAYAT ---
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedCustomerHistory, setSelectedCustomerHistory] = useState<PurchaseHistory[]>([]);
+  const [selectedCustomerName, setSelectedCustomerName] = useState("");
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  // ---------------------------
+
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
-  // State Query
   const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
-    totalCount: 0,
-    totalPages: 0,
-    currentPage: 1,
-    limit: 10,
+    totalCount: 0, totalPages: 0, currentPage: 1, limit: 10,
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [apiQuery, setApiQuery] = useState({ page: 1, search: "" });
-
-  // State Form
   const [formState, setFormState] = useState(defaultFormState);
 
-  // --- FETCH DATA ---
   useEffect(() => {
     const fetchCustomers = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(API_URL, {
-          params: apiQuery,
-        });
+        const response = await axios.get(API_URL, { params: apiQuery });
         setCustomers(response.data.data);
         setPaginationInfo(response.data.pagination);
       } catch (error) {
-        console.error("Gagal mengambil data pelanggan:", error);
         toast.error("Gagal mengambil data pelanggan.");
       } finally {
         setIsLoading(false);
@@ -138,16 +139,31 @@ export default function CustomersPage() {
       try {
         const res = await axios.get(API_URL_AUTH_ME);
         setCurrentUser(res.data);
-      } catch (error) {
-        // Silent error atau toast kecil
-      }
+      } catch (error) { }
     };
 
     fetchCustomers();
     fetchCurrentUser();
   }, [apiQuery]);
 
-  // --- HANDLERS ---
+  // --- FUNCTION BARU: LIHAT RIWAYAT ---
+  const handleOpenHistory = async (customer: Customer) => {
+    setSelectedCustomerName(customer.name);
+    setIsHistoryOpen(true);
+    setIsLoadingHistory(true);
+    setSelectedCustomerHistory([]); // Reset dulu
+
+    try {
+      const res = await axios.get(`${API_URL}/${customer.id}/history`);
+      setSelectedCustomerHistory(res.data);
+    } catch (error) {
+      toast.error("Gagal memuat riwayat belanja.");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+  // ------------------------------------
+
   const handleOpenCreateDialog = () => {
     setCustomerToEdit(null);
     setFormState(defaultFormState);
@@ -175,21 +191,17 @@ export default function CustomersPage() {
     try {
       if (customerToEdit) {
         await axios.put(`${API_URL}/${customerToEdit.id}`, formState);
-        toast.success("Pelanggan berhasil diperbarui.");
+        toast.success("Pelanggan diperbarui.");
       } else {
         await axios.post(API_URL, formState);
-        toast.success("Pelanggan baru berhasil ditambahkan.");
+        toast.success("Pelanggan ditambahkan.");
       }
-      
-      // Refresh logic
       const response = await axios.get(API_URL, { params: apiQuery });
       setCustomers(response.data.data);
-      setPaginationInfo(response.data.pagination);
-      
       setIsFormOpen(false);
       setCustomerToEdit(null);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || "Gagal menyimpan pelanggan.";
+      const errorMessage = error.response?.data?.error || "Gagal menyimpan.";
       toast.error(errorMessage);
     }
   };
@@ -198,18 +210,13 @@ export default function CustomersPage() {
     if (!customerToDelete) return;
     try {
       await axios.delete(`${API_URL}/${customerToDelete.id}`);
-      toast.success("Pelanggan berhasil dihapus.");
-      
-      // Refresh logic
+      toast.success("Pelanggan dihapus.");
       const response = await axios.get(API_URL, { params: apiQuery });
       setCustomers(response.data.data);
-      setPaginationInfo(response.data.pagination);
-
       setIsDeleteAlertOpen(false);
       setCustomerToDelete(null);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || "Gagal menghapus pelanggan.";
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.error || "Gagal menghapus.");
     }
   };
 
@@ -223,13 +230,10 @@ export default function CustomersPage() {
     setApiQuery((prev) => ({ ...prev, page: newPage }));
   };
 
-  // --- RENDER ---
   return (
     <div className="h-full overflow-auto p-4 lg:p-6">
-      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
         <h1 className="text-3xl font-bold">Manajemen Pelanggan</h1>
-        
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <DialogTrigger asChild>
             <Button className="w-full md:w-auto" onClick={handleOpenCreateDialog}>
@@ -238,43 +242,19 @@ export default function CustomersPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>
-                {customerToEdit ? "Edit Pelanggan" : "Tambah Pelanggan Baru"}
-              </DialogTitle>
-              <DialogDescription>
-                {customerToEdit
-                  ? "Perbarui data pelanggan di bawah ini."
-                  : "Masukkan data pelanggan baru untuk loyalitas poin."}
-              </DialogDescription>
+              <DialogTitle>{customerToEdit ? "Edit Pelanggan" : "Tambah Pelanggan Baru"}</DialogTitle>
+              <DialogDescription>Masukkan data pelanggan.</DialogDescription>
             </DialogHeader>
-
             <form onSubmit={handleSubmit} className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">Nama</Label>
-                <Input 
-                  id="name" 
-                  value={formState.name} 
-                  onChange={handleInputChange} 
-                  className="col-span-3" 
-                  required 
-                />
+                <Input id="name" value={formState.name} onChange={handleInputChange} className="col-span-3" required />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phoneNumber" className="text-right">No. HP</Label>
-                <Input 
-                  id="phoneNumber" 
-                  value={formState.phoneNumber} 
-                  onChange={handleInputChange} 
-                  className="col-span-3" 
-                  required 
-                  placeholder="08..." 
-                />
+                <Input id="phoneNumber" value={formState.phoneNumber} onChange={handleInputChange} className="col-span-3" required placeholder="08..." />
               </div>
-              
               <DialogFooter>
-                <DialogClose asChild>
-                  <Button type="button" variant="outline">Batal</Button>
-                </DialogClose>
                 <Button type="submit">Simpan</Button>
               </DialogFooter>
             </form>
@@ -282,26 +262,24 @@ export default function CustomersPage() {
         </Dialog>
       </div>
 
-      {/* Search */}
       <form onSubmit={handleSearchSubmit} className="flex gap-2 mb-4">
-        <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-            placeholder="Cari nama atau nomor HP..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-            />
-        </div>
+        <Input
+          placeholder="Cari nama atau nomor HP..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1"
+        />
         <Button type="submit">Cari</Button>
       </form>
       
-      {/* Konten */}
       {isLoading ? (
-        <DashboardLoadingSkeleton isAdmin={currentUser?.role === 'ADMIN'} />
+        <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+        </div>
       ) : (
         <>
-          {/* Desktop Table */}
           <div className="rounded-md border hidden md:block">
             <Table>
               <TableHeader>
@@ -315,9 +293,7 @@ export default function CustomersPage() {
               <TableBody>
                 {customers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center h-24">
-                      {apiQuery.search ? `Pelanggan "${apiQuery.search}" tidak ditemukan.` : "Belum ada data pelanggan."}
-                    </TableCell>
+                    <TableCell colSpan={4} className="text-center h-24">Data tidak ditemukan.</TableCell>
                   </TableRow>
                 ) : (
                   customers.map((customer) => (
@@ -326,14 +302,21 @@ export default function CustomersPage() {
                       <TableCell>{customer.phoneNumber}</TableCell>
                       <TableCell className="text-right font-bold text-blue-600">{customer.points}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(customer)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        {currentUser?.role === "ADMIN" && (
-                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleOpenDeleteDialog(customer)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <div className="flex justify-end gap-1">
+                            {/* --- TOMBOL HISTORY --- */}
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenHistory(customer)} title="Lihat Riwayat Belanja">
+                                <History className="h-4 w-4 text-green-600" />
+                            </Button>
+                            {/* --------------------- */}
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(customer)}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                            {currentUser?.role === "ADMIN" && (
+                            <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleOpenDeleteDialog(customer)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                            )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -342,14 +325,8 @@ export default function CustomersPage() {
             </Table>
           </div>
 
-          {/* Mobile Cards */}
           <div className="grid grid-cols-1 gap-4 md:hidden">
-            {customers.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                {apiQuery.search ? "Tidak ditemukan." : "Belum ada pelanggan."}
-              </p>
-            ) : (
-              customers.map((customer) => (
+            {customers.map((customer) => (
                 <Card key={customer.id}>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">{customer.name}</CardTitle>
@@ -362,115 +339,90 @@ export default function CustomersPage() {
                     </div>
                   </CardContent>
                   <CardFooter className="flex justify-end gap-2 pt-2">
-                    <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(customer)}>
-                      <Pencil className="h-4 w-4 mr-2" /> Edit
+                    {/* Tombol History Mobile */}
+                    <Button variant="outline" size="sm" onClick={() => handleOpenHistory(customer)}>
+                      <History className="h-4 w-4 mr-2 text-green-600" /> Riwayat
                     </Button>
-                    {currentUser?.role === "ADMIN" && (
-                      <Button variant="outline" size="sm" className="text-red-500 border-red-200 hover:bg-red-50" onClick={() => handleOpenDeleteDialog(customer)}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Hapus
-                      </Button>
-                    )}
+                    <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(customer)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                   </CardFooter>
                 </Card>
-              ))
-            )}
+              ))}
           </div>
         </>
       )}
 
-      {/* Pagination */}
       <div className="flex justify-between items-center mt-4">
-        <span className="text-sm text-muted-foreground">
-          Total {paginationInfo.totalCount} pelanggan
-        </span>
+        <span className="text-sm text-muted-foreground">Total {paginationInfo.totalCount} pelanggan</span>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(paginationInfo.currentPage - 1)}
-            disabled={paginationInfo.currentPage <= 1 || isLoading}
-          >
+          <Button variant="outline" size="sm" onClick={() => handlePageChange(paginationInfo.currentPage - 1)} disabled={paginationInfo.currentPage <= 1 || isLoading}>
             <ChevronLeft className="h-4 w-4" />
-            <span className="hidden sm:inline ml-2">Sebelumnya</span>
           </Button>
-          <span className="text-sm font-medium">
-            Halaman {paginationInfo.currentPage} dari {paginationInfo.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(paginationInfo.currentPage + 1)}
-            disabled={paginationInfo.currentPage >= paginationInfo.totalPages || isLoading}
-          >
-            <span className="hidden sm:inline mr-2">Berikutnya</span>
+          <span className="text-sm font-medium">Halaman {paginationInfo.currentPage}</span>
+          <Button variant="outline" size="sm" onClick={() => handlePageChange(paginationInfo.currentPage + 1)} disabled={paginationInfo.currentPage >= paginationInfo.totalPages || isLoading}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Dialog Konfirmasi Hapus */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Anda yakin ingin menghapus?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tindakan ini tidak dapat dibatalkan. Pelanggan <span className="font-bold">{customerToDelete?.name}</span> akan dihapus permanen.
-              <br /><br />
-              <span className="text-red-500 text-xs">Catatan: Pelanggan yang sudah memiliki riwayat transaksi mungkin tidak dapat dihapus demi integritas data.</span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-500 hover:bg-red-600">
-              Ya, Hapus
-            </AlertDialogAction>
-          </AlertDialogFooter>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Hapus Pelanggan?</AlertDialogTitle>
+                <AlertDialogDescription>Tindakan ini permanen.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Batal</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteConfirm}>Hapus</AlertDialogAction>
+            </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* --- DIALOG RIWAYAT BELANJA (BARU) --- */}
+      <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+                <DialogTitle>Riwayat Belanja: {selectedCustomerName}</DialogTitle>
+                <DialogDescription>Daftar 20 transaksi terakhir.</DialogDescription>
+            </DialogHeader>
+            
+            <ScrollArea className="flex-1 pr-4 -mr-4">
+                {isLoadingHistory ? (
+                    <div className="space-y-2 py-4">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                ) : selectedCustomerHistory.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">Belum ada riwayat belanja.</p>
+                ) : (
+                    <div className="space-y-4 py-4">
+                        {selectedCustomerHistory.map((tx) => (
+                            <div key={tx.id} className="border rounded-lg p-3 text-sm">
+                                <div className="flex justify-between mb-2">
+                                    <span className="text-muted-foreground">
+                                        {new Date(tx.createdAt).toLocaleDateString("id-ID", { dateStyle: 'medium' })}
+                                    </span>
+                                    <span className="font-bold">Rp {tx.finalAmount.toLocaleString("id-ID")}</span>
+                                </div>
+                                <ul className="space-y-1 bg-muted/50 p-2 rounded">
+                                    {tx.details.map((item, idx) => (
+                                        <li key={idx} className="flex justify-between">
+                                            <span>{item.product.name}</span>
+                                            <span className="text-muted-foreground">x{item.quantity}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </ScrollArea>
+        </DialogContent>
+      </Dialog>
+      {/* ------------------------------------- */}
+
     </div>
   );
 }
-
-// --- Skeleton Component ---
-function DashboardLoadingSkeleton({ isAdmin }: { isAdmin: boolean | undefined }) {
-    return (
-      <div>
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-          <Skeleton className="h-9 w-64" />
-          <Skeleton className="h-10 w-full md:w-40" />
-        </div>
-        <div className="flex gap-2 mb-4">
-          <Skeleton className="h-10 flex-1" />
-          <Skeleton className="h-10 w-20" />
-        </div>
-        <div className="rounded-md border hidden md:block">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead><Skeleton className="h-5 w-32" /></TableHead>
-                <TableHead><Skeleton className="h-5 w-32" /></TableHead>
-                <TableHead className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableHead>
-                <TableHead className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[...Array(5)].map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-24 ml-auto" /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        {/* Mobile Skeleton */}
-        <div className="md:hidden space-y-4">
-            {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-40 w-full rounded-xl" />
-            ))}
-        </div>
-      </div>
-    );
-  }
