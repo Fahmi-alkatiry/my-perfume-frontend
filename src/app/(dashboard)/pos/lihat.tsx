@@ -1,10 +1,7 @@
 // frontend/src/app/(dashboard)/pos/page.tsx
 
 "use client";
-import { ProductListView } from "@/components/pos/product-list-view";
-import { CartView } from "@/components/pos/cart-view";
-import { Customer } from "@/components/pos/customer-combobox";
-import { PaymentModal } from "@/components/pos/payment-modal";
+
 import { useState, useEffect, useMemo, FormEvent } from "react";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
@@ -14,42 +11,42 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-// import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import {
-//   Table,
-//   TableBody,
-//   TableCell,
-//   TableHead,
-//   TableHeader,
-//   TableRow,
-// } from "@/components/ui/table";
-// // import { Separator } from "@/components/ui/separator";
-// import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-// import {
-//   Popover,
-//   PopoverContent,
-//   PopoverTrigger,
-// } from "@/components/ui/popover";
-// import {
-//   Command,
-//   CommandEmpty,
-//   CommandGroup,
-//   CommandInput,
-//   CommandItem,
-//   CommandList,
-// } from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-// import {
-//   Select,
-//   SelectContent,
-//   SelectItem,
-//   SelectTrigger,
-//   SelectValue,
-// } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -60,16 +57,16 @@ import {
 } from "@/components/ui/dialog";
 import {
   Loader2,
-  // Plus,
-  // Minus,
-  // Trash2,
-  // Search,
-  // Check,
-  // ChevronsUpDown,
-  // User,
-  // X,
+  Plus,
+  Minus,
+  Trash2,
+  Search,
+  Check,
+  ChevronsUpDown,
+  User,
+  X,
   ShoppingCart,
-  // DoorClosed, // <-- Ikon Tutup Shift
+  DoorClosed, // <-- Ikon Tutup Shift
   LogOut,
 } from "lucide-react";
 
@@ -86,7 +83,12 @@ interface Product {
 interface CartItem extends Product {
   quantity: number;
 }
-
+interface Customer {
+  id: number;
+  name: string;
+  phoneNumber: string;
+  points: number;
+}
 interface LoggedInUser {
   id: number;
   name: string;
@@ -98,12 +100,12 @@ interface PaymentMethod {
 }
 
 // --- Konstanta API ---
-const API_URL_PRODUCTS = "/products";
-// const API_URL_CUSTOMERS = "/customers";
-const API_URL_TRANSACTIONS = "/transactions";
-const API_URL_AUTH_ME = "/auth/me";
-const API_URL_PAYMENT_METHODS = "/payment-methods";
-const API_URL_SHIFTS = "/shifts"; // <-- API Shift
+const API_URL_PRODUCTS = "/api/products";
+const API_URL_CUSTOMERS = "/api/customers";
+const API_URL_TRANSACTIONS = "/api/transactions";
+const API_URL_AUTH_ME = "/api/auth/me";
+const API_URL_PAYMENT_METHODS = "/api/payment-methods";
+const API_URL_SHIFTS = "/api/shifts"; // <-- API Shift
 
 // ====================================================================
 // ================= Halaman Utama POS (Induk) ========================
@@ -113,20 +115,7 @@ export default function PosPage() {
 
   // --- State Utama ---
   const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartItem[]>(() => {
-     // Pastikan kode ini hanya berjalan di browser (bukan server)
-     if (typeof window === "undefined") {
-       return [];
-     }
- 
-     try {
-       const savedCart = localStorage.getItem("myPerfumeCart");
-       return savedCart ? JSON.parse(savedCart) : [];
-     } catch (error) {
-       console.error("Gagal memuat keranjang:", error);
-       return [];
-     }
-   });
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -203,13 +192,6 @@ export default function PosPage() {
 
     fetchData();
   }, []);
-
-
-    useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("myPerfumeCart", JSON.stringify(cart));
-    }
-  }, [cart]);
 
   // --- HANDLER SHIFT ---
   const handleStartShift = async (e: FormEvent) => {
@@ -615,5 +597,381 @@ Terima kasih atas pesanan Anda`;
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// --- PRODUCT LIST VIEW ---
+function ProductListView({
+  products,
+  isLoading,
+  searchTerm,
+  onSearchChange,
+  onAddToCart,
+}: any) {
+  return (
+    <div className="flex flex-1 flex-col min-h-0">
+      <div className="p-4 pb-0">
+        <h2 className="text-2xl font-bold mb-4">Daftar Produk</h2>
+      </div>
+      <div className="px-4 mb-4 relative">
+        <Search className="absolute left-7 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Cari..."
+          className="pl-9"
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+      </div>
+      <ScrollArea className="flex-1 min-h-0 px-4">
+        {isLoading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="animate-spin" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
+            {products.map((p: any) => (
+              <Card
+                key={p.id}
+                onClick={() => onAddToCart(p)}
+                className={`cursor-pointer hover:border-primary ${
+                  p.stock === 0 ? "opacity-50" : ""
+                }`}
+              >
+                <CardHeader className="p-4">
+                  <CardTitle className="text-sm line-clamp-2">
+                    {p.name}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <p className="font-bold">
+                    Rp {Number(p.sellingPrice).toLocaleString("id-ID")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Stok: {p.stock}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
+  );
+}
+
+// --- CART VIEW (TERMASUK TOMBOL TUTUP SHIFT) ---
+function CartView({
+  cart,
+  selectedCustomer,
+  onSelectCustomer,
+  usePoints,
+  onUsePointsChange,
+  subtotal,
+  discountAmount,
+  cartTotal,
+  isSubmitting,
+  onUpdateQuantity,
+  onRemoveFromCart,
+  onOpenPaymentModal,
+  paymentMethods,
+  selectedMethodId,
+  onSelectMethod,
+  onOpenEndShiftModal, // <-- Prop Baru
+}: any) {
+  return (
+    <div className="flex flex-1 flex-col min-h-0">
+      {/* Header dengan Tombol Tutup Shift */}
+      <div className="p-4 border-b shrink-0 flex justify-between items-center bg-gray-50">
+        <h2 className="text-2xl font-bold">Keranjang</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onOpenEndShiftModal}
+          className="text-red-600 border-red-200 hover:bg-red-50"
+        >
+          <DoorClosed className="h-4 w-4 mr-2" /> Tutup Shift
+        </Button>
+      </div>
+
+      <div className="p-4 border-b shrink-0">
+        <div className="mb-4">
+          <Label className="mb-2 block">Pelanggan</Label>
+          {selectedCustomer ? (
+            <div className="flex items-center justify-between rounded-md border p-3 bg-white">
+              <div className="space-y-1">
+                <p className="font-medium">{selectedCustomer.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Poin: {selectedCustomer.points}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onSelectCustomer(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <CustomerCombobox onSelectCustomer={onSelectCustomer} />
+          )}
+        </div>
+      </div>
+
+      <ScrollArea className="flex-1 min-h-0 px-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Produk</TableHead>
+              <TableHead>Qty</TableHead>
+              <TableHead className="text-right">Subtotal</TableHead>
+              <TableHead className="w-10"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {cart.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={4}
+                  className="text-center h-24 text-muted-foreground"
+                >
+                  Keranjang kosong
+                </TableCell>
+              </TableRow>
+            ) : (
+              cart.map((item: any) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">
+                    {item.name} <br />
+                    <span className="text-xs text-muted-foreground">
+                      @ Rp {Number(item.sellingPrice).toLocaleString("id-ID")}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() =>
+                          onUpdateQuantity(item.id, item.quantity - 1)
+                        }
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="w-6 text-center">{item.quantity}</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() =>
+                          onUpdateQuantity(item.id, item.quantity + 1)
+                        }
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    Rp{" "}
+                    {(Number(item.sellingPrice) * item.quantity).toLocaleString(
+                      "id-ID"
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500"
+                      onClick={() => onRemoveFromCart(item.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </ScrollArea>
+
+      <div className="p-4 border-t shrink-0 bg-white space-y-4">
+        <div className="flex justify-between text-sm text-muted-foreground">
+          <span>Subtotal</span>
+          <span>Rp {subtotal.toLocaleString("id-ID")}</span>
+        </div>
+        {selectedCustomer && selectedCustomer.points >= 10 && (
+          <div className="flex items-center justify-between">
+            <Label htmlFor="pts" className="flex flex-col">
+              Gunakan Poin{" "}
+              <span className="text-xs font-normal">Diskon Rp 30.000</span>
+            </Label>
+            <Switch
+              id="pts"
+              checked={usePoints}
+              onCheckedChange={onUsePointsChange}
+            />
+          </div>
+        )}
+        {discountAmount > 0 && (
+          <div className="flex justify-between text-red-600 font-medium">
+            <span>Diskon Poin</span>
+            <span>- Rp {discountAmount.toLocaleString("id-ID")}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-xl font-bold">
+          <span>Total</span>
+          <span>Rp {cartTotal.toLocaleString("id-ID")}</span>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Metode Pembayaran</Label>
+          <Select
+            value={selectedMethodId?.toString() || ""}
+            onValueChange={(v) => onSelectMethod(Number(v))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Pilih..." />
+            </SelectTrigger>
+            <SelectContent>
+              {paymentMethods.length === 0 ? (
+                <SelectItem value="l" disabled>
+                  Loading...
+                </SelectItem>
+              ) : (
+                paymentMethods.map((m: any) => (
+                  <SelectItem key={m.id} value={m.id.toString()}>
+                    {m.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Button
+          size="lg"
+          className="w-full text-lg"
+          onClick={onOpenPaymentModal}
+          disabled={isSubmitting || cart.length === 0 || !selectedMethodId}
+        >
+          {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : null}{" "}
+          Bayar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// --- PaymentModal & CustomerCombobox (Disingkat agar muat, pastikan ada di file Anda) ---
+function PaymentModal({
+  isOpen,
+  onOpenChange,
+  totalAmount,
+  cashPaid,
+  onCashPaidChange,
+  onSubmit,
+  isSubmitting,
+}: any) {
+  const cash = Number(cashPaid) || 0;
+  const change = cash > totalAmount ? cash - totalAmount : 0;
+  const insufficient = cash < totalAmount;
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>Pembayaran</DialogTitle>
+          <DialogDescription>
+            Total: Rp {totalAmount.toLocaleString("id-ID")}
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!insufficient) onSubmit(cash, change);
+          }}
+        >
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Uang Diterima</Label>
+              <Input
+                type="number"
+                autoFocus
+                value={cashPaid}
+                onChange={(e) => onCashPaidChange(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-between font-bold text-lg">
+              <span>Kembalian</span>
+              <span className="text-blue-600">
+                Rp {change.toLocaleString("id-ID")}
+              </span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isSubmitting || insufficient}
+            >
+              Konfirmasi & Kirim WA
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CustomerCombobox({ onSelectCustomer }: any) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [customers, setCustomers] = useState<any[]>([]);
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      try {
+        const res = await axios.get(API_URL_CUSTOMERS, {
+          params: { search, limit: 5 },
+        });
+        setCustomers(res.data.data);
+      } catch {}
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          className="w-full justify-between"
+        >
+          <User className="mr-2 h-4 w-4" /> Pilih Pelanggan{" "}
+          <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0">
+        <Command>
+          <CommandInput placeholder="Cari..." onValueChange={setSearch} />
+          <CommandList>
+            <CommandEmpty>Tidak ditemukan.</CommandEmpty>
+            <CommandGroup>
+              {customers.map((c) => (
+                <CommandItem
+                  key={c.id}
+                  onSelect={() => {
+                    onSelectCustomer(c);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className="mr-2 h-4 w-4 opacity-0" />
+                  {c.name} ({c.phoneNumber})
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

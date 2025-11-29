@@ -20,6 +20,7 @@ import {
   Archive,
   ChevronLeft,
   BrainCircuit,
+  Clock,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -63,6 +64,12 @@ const navLinks = [
     label: "Peramalan Stok", // Atau "Analisis Stok"
     icon: BrainCircuit,
     adminOnly: true,
+  },
+  {
+    href: "/reports/shifts",
+    label: "Laporan Shift",
+    icon: Clock,
+    adminOnly: true, // Hanya admin yang perlu lihat ini
   },
   {
     href: "/products",
