@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import axios from "axios";
+import axios from "@/lib/axios"; // Pastikan import dari @/lib/axios
 // import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Cookies from "js-cookie"; // <-- Impor js-cookie
@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
-const API_URL_LOGIN = "https://api.myperfumee.my.id/api/auth/login";
+const API_URL_LOGIN = "/auth/login";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");

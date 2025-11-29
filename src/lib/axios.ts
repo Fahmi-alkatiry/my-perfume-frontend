@@ -5,23 +5,26 @@ import Cookies from "js-cookie";
 // 1. Buat instance axios
 // https://api.myperfumee.my.id/
 // http://localhost:5000
-const axiosInstance = axios.create( { baseURL: "https://api.myperfumee.my.id/api" });
 
-// 2. Buat Interceptor (Middleware untuk Axios)
+const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+// Buat instance axios
+const axiosInstance = axios.create({
+  baseURL: `${baseURL}/api`, // jika backend pakai /api
+});
+
+// Interceptor untuk auth token
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 3. Ambil token dari cookie
     const token = Cookies.get("token");
 
-    // 4. Jika token ada, tambahkan ke header Authorization
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export default axiosInstance;

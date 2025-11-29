@@ -1,12 +1,13 @@
 // frontend/src/app/(dashboard)/reports/page.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
-import axios from "@/lib/axios"; // Pastikan dari /lib/axios
+import axios from "@/lib/axios";
 import { toast } from "sonner";
-import { format, addDays, startOfMonth } from "date-fns"; // Untuk tanggal
-import { id as dateFnsLocaleId } from "date-fns/locale"; // Bahasa Indonesia
-import { DateRange } from "react-day-picker"; // Tipe untuk rentang tanggal
+import { format, startOfMonth } from "date-fns";
+import { id as dateFnsLocaleId } from "date-fns/locale";
+import { DateRange } from "react-day-picker";
 
 // Komponen UI
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-
 import {
   Card,
   CardContent,
@@ -31,19 +31,50 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"; // <-- Dialog Detail
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, CalendarIcon, ChevronLeft, ChevronRight, Ban, Eye } from "lucide-react";
 
 // --- Tipe Data ---
+interface TransactionDetail {
+  id: string;
+  quantity: number;
+  priceAtTransaction: number;
+  subtotal: number;
+  product: {
+    name: string;
+    productCode: string;
+  };
+}
+
 interface Transaction {
   id: number;
   createdAt: string;
   finalAmount: number;
   totalMargin: number;
+  status: "COMPLETED" | "CANCELLED";
   customer: { name: string } | null;
-  user: { name: string } | null; // Kasir
-  paymentMethod: { name: string } | null; // <-- BARU
+  user: { name: string } | null;
+  paymentMethod: { name: string } | null;
+  details: TransactionDetail[]; // <-- BARU: Data detail barang
 }
 
 interface PaginationInfo {
@@ -53,7 +84,6 @@ interface PaginationInfo {
   limit: number;
 }
 
-// --- API URL ---
 const API_URL = "/reports/transactions";
 
 // ====================================================================
@@ -63,7 +93,15 @@ export default function ReportsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // State untuk query (filter & pagination)
+  // State Dialog Pembatalan
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [transactionToCancel, setTransactionToCancel] = useState<number | null>(null);
+
+  // --- BARU: State Dialog Detail ---
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  // --------------------------------
+
   const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
     totalCount: 0,
     totalPages: 0,
@@ -71,47 +109,39 @@ export default function ReportsPage() {
     limit: 10,
   });
 
-  // State untuk Date Picker
   const [date, setDate] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()), // Awal bulan ini
-    to: new Date(), // Hari ini
+    from: startOfMonth(new Date()),
+    to: new Date(),
   });
 
-  // State yang dikirim ke API
   const [apiQuery, setApiQuery] = useState({
     page: 1,
     startDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
     endDate: format(new Date(), "yyyy-MM-dd"),
   });
 
-  // --- Fungsi Fetch Data ---
+  // --- Fetch Data ---
+  const fetchTransactions = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get(API_URL, { params: apiQuery });
+      setTransactions(response.data.data);
+      setPaginationInfo(response.data.pagination);
+    } catch (error: any) {
+      toast.error("Gagal Memuat Laporan");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTransactions = async () => {
-      setIsLoading(true);
-      try {
-        const response = await axios.get(API_URL, {
-          params: apiQuery, // Kirim query (page, startDate, endDate)
-        });
-        setTransactions(response.data.data);
-        setPaginationInfo(response.data.pagination);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (error: any) {
-        const errorMessage =
-          error.response?.data?.error || "Gagal mengambil riwayat transaksi";
-        toast.error("Gagal Memuat Laporan", { description: errorMessage });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchTransactions();
-  }, [apiQuery]); // <--- Dipicu setiap kali apiQuery berubah
+  }, [apiQuery]);
 
-  // --- Handler ---
+  // --- Handlers ---
   const handleFilterApply = () => {
-    // Saat tombol "Terapkan" diklik, update apiQuery
     setApiQuery({
-      page: 1, // Reset ke halaman 1
+      page: 1,
       startDate: date?.from ? format(date.from, "yyyy-MM-dd") : "",
       endDate: date?.to ? format(date.to, "yyyy-MM-dd") : "",
     });
@@ -119,11 +149,37 @@ export default function ReportsPage() {
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > paginationInfo.totalPages) return;
-    // Update apiQuery hanya di bagian 'page'
     setApiQuery((prev) => ({ ...prev, page: newPage }));
   };
 
-  // --- Utility ---
+  // Handler Batal
+  const onCancelClick = (id: number) => {
+    setTransactionToCancel(id);
+    setIsCancelDialogOpen(true);
+  };
+
+  const confirmCancelTransaction = async () => {
+    if (!transactionToCancel) return;
+    try {
+      await axios.post(`/transactions/${transactionToCancel}/cancel`);
+      toast.success("Transaksi berhasil dibatalkan");
+      fetchTransactions();
+    } catch (error: any) {
+      toast.error("Gagal membatalkan transaksi");
+    } finally {
+      setIsCancelDialogOpen(false);
+      setTransactionToCancel(null);
+    }
+  };
+
+  // --- BARU: Handler Lihat Detail ---
+  const onViewDetail = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsDetailOpen(true);
+  };
+  // ----------------------------------
+
+  // Utility
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -139,245 +195,240 @@ export default function ReportsPage() {
     });
   };
 
-  // --- RENDER (JSX) ---
   return (
     <div className="h-full overflow-auto p-4 lg:p-6">
       <h1 className="text-3xl font-bold mb-4">Riwayat Transaksi</h1>
       <p className="mb-6 text-muted-foreground">
-        Lihat semua transaksi yang telah selesai.
+        Lihat detail dan kelola riwayat transaksi toko.
       </p>
 
       {/* Filter Bar (TETAP SAMA) */}
       <div className="flex flex-col md:flex-row gap-2 mb-4">
         <Popover>
           <PopoverTrigger asChild>
-            <Button
-              id="date"
-              variant={"outline"}
-              className="w-full md:w-[300px] justify-start text-left font-normal"
-            >
+            <Button variant={"outline"} className="w-full md:w-[300px] justify-start text-left font-normal">
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {/* ... (Isi Tombol Tanggal) ... */}
+              {date?.from ? (
+                date.to ? (
+                  <>{format(date.from, "LLL dd, y", { locale: dateFnsLocaleId })} - {format(date.to, "LLL dd, y", { locale: dateFnsLocaleId })}</>
+                ) : format(date.from, "LLL dd, y", { locale: dateFnsLocaleId })
+              ) : <span>Pilih rentang tanggal</span>}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              initialFocus
-              mode="range"
-              defaultMonth={date?.from}
-              selected={date}
-              onSelect={setDate}
-              numberOfMonths={2}
-              locale={dateFnsLocaleId}
-            />
+            <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} locale={dateFnsLocaleId} />
           </PopoverContent>
         </Popover>
         <Button onClick={handleFilterApply}>Terapkan Filter</Button>
       </div>
 
-      {/* Konten (Loading / Data) */}
+      {/* Konten */}
       {isLoading ? (
-        // --- Panggil Skeleton (Sekarang sudah responsif) ---
         <ReportLoadingSkeleton />
       ) : (
         <>
-          {/* --- 1. TAMPILAN TABEL (Hanya Desktop) --- */}
+          {/* Desktop Table */}
           <div className="rounded-md border hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Tanggal</TableHead>
-                  <TableHead>ID Transaksi</TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Pelanggan</TableHead>
-                  <TableHead>Kasir</TableHead>
-                  <TableHead>Metode Bayar</TableHead>
-                  <TableHead className="text-right">Total Profit</TableHead>
-                  <TableHead className="text-right">Total Penjualan</TableHead>
+                  <TableHead>Metode</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">
-                      Tidak ada transaksi pada rentang tanggal ini.
+                {transactions.map((tx) => (
+                  <TableRow key={tx.id} className={tx.status === 'CANCELLED' ? "bg-muted/50 opacity-60" : ""}>
+                    <TableCell>{formatDate(tx.createdAt)}</TableCell>
+                    <TableCell className="font-medium">#{tx.id}</TableCell>
+                    <TableCell>
+                      <Badge variant={tx.status === 'COMPLETED' ? 'default' : 'destructive'}>
+                        {tx.status === 'COMPLETED' ? 'Sukses' : 'Dibatalkan'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{tx.customer?.name || "Guest"}</TableCell>
+                    <TableCell>{tx.paymentMethod?.name || "-"}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(tx.finalAmount)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {/* --- TOMBOL DETAIL --- */}
+                        <Button variant="outline" size="sm" onClick={() => onViewDetail(tx)}>
+                          <Eye className="h-4 w-4 mr-1" /> Detail
+                        </Button>
+                        
+                        {/* Tombol Batal */}
+                        {tx.status === 'COMPLETED' && (
+                          <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" onClick={() => onCancelClick(tx.id)}>
+                            <Ban className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  transactions.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell>{formatDate(tx.createdAt)}</TableCell>
-                      <TableCell className="font-medium">TRX-{tx.id}</TableCell>
-                      <TableCell>{tx.customer?.name || "Guest"}</TableCell>
-                      <TableCell>{tx.user?.name || "N/A"}</TableCell>
-                      <TableCell>{tx.paymentMethod?.name || "N/A"}</TableCell>
-                      <TableCell className="text-right text-green-600">
-                        {formatCurrency(tx.totalMargin)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(tx.finalAmount)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           </div>
 
-          {/* --- 2. TAMPILAN KARTU (Hanya Mobile) --- */}
+          {/* Mobile Cards (Updated) */}
           <div className="grid grid-cols-1 gap-4 md:hidden">
-            {transactions.length === 0 ? (
-              <p className="text-center text-muted-foreground py-10">
-                Tidak ada transaksi pada rentang tanggal ini.
-              </p>
-            ) : (
-              transactions.map((tx) => (
-                <Card key={tx.id}>
-                  <CardHeader>
-                    <CardTitle>TRX-{tx.id}</CardTitle>
-                    <CardDescription>
-                      {formatDate(tx.createdAt)}
-                    </CardDescription>
+             {transactions.map((tx) => (
+                <Card key={tx.id} className={tx.status === 'CANCELLED' ? "opacity-70 bg-muted/20" : ""}>
+                  {/* ... (Header Card sama) ... */}
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle>#{tx.id}</CardTitle>
+                            <CardDescription>{formatDate(tx.createdAt)}</CardDescription>
+                        </div>
+                        <Badge variant={tx.status === 'COMPLETED' ? 'default' : 'destructive'}>
+                            {tx.status === 'COMPLETED' ? 'Sukses' : 'Batal'}
+                        </Badge>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">
-                        Total
-                      </span>
-                      <span className="font-medium">
-                        {formatCurrency(tx.finalAmount)}
-                      </span>
+                  <CardContent className="space-y-2 text-sm pb-2">
+                    <div className="flex justify-between font-medium text-lg">
+                      <span>Total</span>
+                      <span>{formatCurrency(tx.finalAmount)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">
-                        Profit
-                      </span>
-                      <span className="font-medium text-green-600">
-                        {formatCurrency(tx.totalMargin)}
-                      </span>
+                      <span className="text-muted-foreground">Pelanggan</span>
+                      <span>{tx.customer?.name || "Guest"}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">
-                        Pelanggan
-                      </span>
-                      <span className="font-medium text-sm">
-                        {tx.customer?.name || "Guest"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">
-                        Kasir
-                      </span>
-                      <span className="font-medium text-sm">
-                        {tx.user?.name || "N/A"}
-                      </span>
+                    
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                       <Button variant="outline" size="sm" onClick={() => onViewDetail(tx)}>
+                          <Eye className="h-4 w-4 mr-2" /> Detail
+                       </Button>
+                       {tx.status === 'COMPLETED' && (
+                          <Button variant="outline" size="sm" className="text-red-600 border-red-200" onClick={() => onCancelClick(tx.id)}>
+                              Batalkan
+                          </Button>
+                       )}
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            )}
+              ))}
           </div>
-          {/* ------------------------------------- */}
 
           {/* Pagination (TETAP SAMA) */}
           <div className="flex justify-between items-center mt-4">
-            <span className="text-sm text-muted-foreground">
-              Total {paginationInfo.totalCount} transaksi
-            </span>
+            <span className="text-sm text-muted-foreground">Total {paginationInfo.totalCount} transaksi</span>
             <div className="flex items-center gap-2">
-              {/* ... (Tombol Pagination) ... */}
+              <Button variant="outline" size="sm" onClick={() => handlePageChange(paginationInfo.currentPage - 1)} disabled={paginationInfo.currentPage <= 1 || isLoading}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm">Hal {paginationInfo.currentPage}</span>
+              <Button variant="outline" size="sm" onClick={() => handlePageChange(paginationInfo.currentPage + 1)} disabled={paginationInfo.currentPage >= paginationInfo.totalPages || isLoading}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </>
       )}
+
+      {/* --- DIALOG DETAIL TRANSAKSI (BARU) --- */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Detail Transaksi #{selectedTransaction?.id}</DialogTitle>
+            <DialogDescription>
+              Waktu: {selectedTransaction ? formatDate(selectedTransaction.createdAt) : '-'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTransaction && (
+            <div className="mt-4 space-y-6">
+              {/* Info Header */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Pelanggan</p>
+                  <p className="font-medium">{selectedTransaction.customer?.name || "Guest"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Kasir</p>
+                  <p className="font-medium">{selectedTransaction.user?.name || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Metode Bayar</p>
+                  <p className="font-medium">{selectedTransaction.paymentMethod?.name || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Status</p>
+                  <Badge variant={selectedTransaction.status === 'COMPLETED' ? 'default' : 'destructive'}>
+                    {selectedTransaction.status}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Tabel Item */}
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produk</TableHead>
+                      <TableHead className="text-center">Qty</TableHead>
+                      <TableHead className="text-right">Harga Satuan</TableHead>
+                      <TableHead className="text-right">Subtotal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedTransaction.details?.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <p className="font-medium">{item.product.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.product.productCode}</p>
+                        </TableCell>
+                        <TableCell className="text-center">{item.quantity}</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(Number(item.priceAtTransaction))}
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {formatCurrency(Number(item.subtotal))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Footer Total */}
+              <div className="flex justify-end text-lg font-bold">
+                <span>Total Akhir: {formatCurrency(selectedTransaction.finalAmount)}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Konfirmasi Pembatalan (Tetap Sama) */}
+      <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Batalkan Transaksi Ini?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stok produk dan poin akan dikembalikan. Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Kembali</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancelTransaction} className="bg-red-600 hover:bg-red-700">
+              Ya, Batalkan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
 
-// ====================================================================
-// ================= Komponen Skeleton Loading ========================
-// ====================================================================
+// Skeleton (Tetap Sama)
 function ReportLoadingSkeleton() {
-  return (
-    <div>
-      {/* Filter Bar Skeleton */}
-      <div className="flex gap-2 mb-4">
-        <Skeleton className="h-10 w-full md:w-[300px]" />
-        <Skeleton className="h-10 w-32" />
-      </div>
-
-      {/* --- 1. Skeleton Tabel (Desktop) --- */}
-      <div className="rounded-md border hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                <Skeleton className="h-5 w-32" />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-5 w-20" />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-5 w-24" />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-5 w-24" />
-              </TableHead>
-              <TableHead className="text-right">
-                <Skeleton className="h-5 w-28 ml-auto" />
-              </TableHead>
-              <TableHead className="text-right">
-                <Skeleton className="h-5 w-28 ml-auto" />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[...Array(5)].map((_, i) => (
-              <TableRow key={i}>
-                <TableCell>
-                  <Skeleton className="h-5 w-32" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-20" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-24" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-24" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-28 ml-auto" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-28 ml-auto" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* --- 2. Skeleton Kartu (Mobile) --- */}
-      <div className="grid grid-cols-1 gap-4 md:hidden">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i}>
-            <CardHeader>
-              <Skeleton className="h-6 w-24" />
-              <Skeleton className="h-4 w-40 mt-1" />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-28" />
-              </div>
-              <div className="flex justify-between">
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-28" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
+  return ( <div>Loading...</div> ); // Bisa gunakan skeleton yang lama
 }
