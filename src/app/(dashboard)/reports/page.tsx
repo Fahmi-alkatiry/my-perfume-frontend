@@ -161,7 +161,7 @@ export default function ReportsPage() {
   const confirmCancelTransaction = async () => {
     if (!transactionToCancel) return;
     try {
-      await axios.post(`g/transactions/${transactionToCancel}/cancel`);
+      await axios.post(`/transactions/${transactionToCancel}/cancel`);
       toast.success("Transaksi berhasil dibatalkan");
       fetchTransactions();
     } catch (error: any) {
