@@ -1,22 +1,22 @@
 // frontend/src/app/(dashboard)/reports/shifts/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, History } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
+} from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight, History, Pencil } from "lucide-react";
 
 interface Shift {
   id: number;
@@ -44,6 +44,11 @@ export default function ShiftReportPage() {
     totalCount: 0, totalPages: 0, currentPage: 1, limit: 10,
   });
 
+  // State untuk Edit
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [shiftToEdit, setShiftToEdit] = useState<Shift | null>(null);
+  const [editForm, setEditForm] = useState({ startCash: "", endCash: "" });
+
   const fetchShifts = async (page = 1) => {
     setIsLoading(true);
     try {
@@ -61,23 +66,46 @@ export default function ShiftReportPage() {
     fetchShifts();
   }, []);
 
+  // Handlers
+  const handleOpenEdit = (shift: Shift) => {
+    setShiftToEdit(shift);
+    setEditForm({
+      startCash: shift.startCash.toString(),
+      endCash: shift.endCash ? shift.endCash.toString() : "",
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!shiftToEdit) return;
+    
+    try {
+      // Kirim data update ke backend
+      await axios.put(`/shifts/${shiftToEdit.id}`, {
+        startCash: Number(editForm.startCash),
+        endCash: editForm.endCash ? Number(editForm.endCash) : undefined,
+      });
+      
+      toast.success("Data shift berhasil diperbarui.");
+      setIsEditOpen(false);
+      fetchShifts(pagination.currentPage); // Refresh tabel
+    } catch (error) {
+      toast.error("Gagal mengupdate shift.");
+    }
+  };
+
   // Utility Format
-  const formatRp = (val: number | null) => 
-    val ? `Rp ${Number(val).toLocaleString("id-ID")}` : "-";
-  
-  const formatDate = (dateStr: string | null) => 
-    dateStr ? new Date(dateStr).toLocaleString("id-ID", { dateStyle: 'medium', timeStyle: 'short' }) : "Sedang Aktif";
+  const formatRp = (val: number | null) => val ? `Rp ${Number(val).toLocaleString("id-ID")}` : "-";
+  const formatDate = (dateStr: string | null) => dateStr ? new Date(dateStr).toLocaleString("id-ID", { dateStyle: 'medium', timeStyle: 'short' }) : "Sedang Aktif";
 
   return (
     <div className="h-full overflow-auto p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-          <History className="h-8 w-8 text-primary" />
-          Laporan Shift Kasir
+          <History className="h-8 w-8 text-primary" /> Laporan Shift Kasir
         </h1>
-        <p className="text-muted-foreground">
-          Audit pembukaan dan penutupan kasir serta selisih uang tunai.
-        </p>
+        <p className="text-muted-foreground">Audit pembukaan dan penutupan kasir.</p>
       </div>
 
       <Card className="border rounded-md">
@@ -91,19 +119,14 @@ export default function ShiftReportPage() {
               <TableHead className="text-right">Uang Fisik</TableHead>
               <TableHead className="text-right">Selisih</TableHead>
               <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              [...Array(5)].map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
-                </TableRow>
-              ))
+              [...Array(5)].map((_, i) => <TableRow key={i}><TableCell colSpan={8}><Skeleton className="h-8 w-full" /></TableCell></TableRow>)
             ) : shifts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center h-24">Belum ada data shift.</TableCell>
-              </TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center h-24">Belum ada data shift.</TableCell></TableRow>
             ) : (
               shifts.map((shift) => (
                 <TableRow key={shift.id}>
@@ -124,6 +147,11 @@ export default function ShiftReportPage() {
                         {shift.status === "OPEN" ? "Aktif" : "Tutup"}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(shift)}>
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -131,23 +159,35 @@ export default function ShiftReportPage() {
         </Table>
       </Card>
 
-      {/* Pagination Simple */}
       <div className="flex justify-end gap-2">
-        <Button 
-            variant="outline" 
-            disabled={pagination.currentPage === 1}
-            onClick={() => fetchShifts(pagination.currentPage - 1)}
-        >
-            <ChevronLeft className="h-4 w-4" /> Prev
-        </Button>
-        <Button 
-            variant="outline" 
-            disabled={pagination.currentPage === pagination.totalPages}
-            onClick={() => fetchShifts(pagination.currentPage + 1)}
-        >
-            Next <ChevronRight className="h-4 w-4" />
-        </Button>
+        <Button variant="outline" disabled={pagination.currentPage === 1} onClick={() => fetchShifts(pagination.currentPage - 1)}><ChevronLeft className="h-4 w-4" /> Prev</Button>
+        <Button variant="outline" disabled={pagination.currentPage === pagination.totalPages} onClick={() => fetchShifts(pagination.currentPage + 1)}>Next <ChevronRight className="h-4 w-4" /></Button>
       </div>
+
+      {/* DIALOG EDIT SHIFT */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+                <DialogTitle>Koreksi Data Shift</DialogTitle>
+                <DialogDescription>Ubah data jika terjadi kesalahan input oleh kasir.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="space-y-4 py-4">
+                <div className="space-y-2">
+                    <Label>Modal Awal (Start Cash)</Label>
+                    <Input type="number" value={editForm.startCash} onChange={e => setEditForm({...editForm, startCash: e.target.value})} />
+                </div>
+                {shiftToEdit?.status === 'CLOSED' && (
+                    <div className="space-y-2">
+                        <Label>Uang Fisik Akhir (End Cash)</Label>
+                        <Input type="number" value={editForm.endCash} onChange={e => setEditForm({...editForm, endCash: e.target.value})} />
+                    </div>
+                )}
+                <DialogFooter>
+                    <Button type="submit">Simpan Perubahan</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
