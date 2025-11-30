@@ -171,6 +171,33 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Card Tambahan: Pengeluaran */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pengeluaran</CardTitle>
+            <div className="h-4 w-4 text-red-500">💸</div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              - {formatCurrency(summary?.todayExpenses || 0)}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card Tambahan: Net Profit (UANG BERSIH) */}
+        <Card className="bg-primary/10 border-primary/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-bold text-primary">PROFIT BERSIH</CardTitle>
+            <div className="h-4 w-4 text-primary">💰</div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {formatCurrency(summary?.todayNetProfit || 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">Gross Profit - Pengeluaran</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* --- BAGIAN 2: GRAFIK (BARU) --- */}

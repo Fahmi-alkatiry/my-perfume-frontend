@@ -22,6 +22,7 @@ import {
   BrainCircuit,
   Clock,
   ClipboardList,
+  Wallet,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -59,6 +60,12 @@ const navLinks = [
     label: "Riwayat Stok",
     icon: Archive,
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
+  },
+  {
+    href: "/expenses",
+    label: "Pengeluaran",
+    icon: Wallet,
+    adminOnly: true, // Hanya Admin yang boleh catat pengeluaran
   },
   {
     href: "/reports/forecast",
