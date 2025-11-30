@@ -23,6 +23,7 @@ import {
   Clock,
   ClipboardList,
   Wallet,
+  Ticket,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -80,6 +81,12 @@ const navLinks = [
     adminOnly: true, // Hanya admin yang perlu lihat ini
   },
   {
+    href: "/vouchers",
+    label: "Voucher",
+    icon: Ticket,
+    adminOnly: true, // Hanya Admin
+  },
+  {
     href: "/products",
     label: "Produk",
     icon: Package,
@@ -123,7 +130,7 @@ function NavLinkItems({
             key={link.href}
             href={link.href}
             className={`
-              flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:bg-muted
+              flex items-center gap-2 rounded-lg px-3 py-2 transition-all hover:bg-muted
               ${isActive ? "bg-muted text-primary" : "text-muted-foreground"}
               ${isCollapsed ? "justify-center" : ""}
             `}

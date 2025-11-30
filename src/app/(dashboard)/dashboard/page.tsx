@@ -15,6 +15,7 @@ import {
   Package,
   AlertTriangle,
   PackageCheck,
+  Tags,
 } from "lucide-react";
 // --- IMPOR RECHARTS ---
 import {
@@ -37,6 +38,7 @@ interface SummaryData {
   todayExpenses: number;  // <-- TAMBAHKAN INI
   todayTransactions: number;
   todayItemsSold: number;
+  todayDiscounts: number;
 }
 
 interface LowStockProduct {
@@ -198,6 +200,20 @@ export default function DashboardPage() {
               {formatCurrency(summary?.todayNetProfit || 0)}
             </div>
             <p className="text-xs text-muted-foreground">Gross Profit - Pengeluaran</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Diskon</CardTitle>
+            <Tags className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {formatCurrency(summary?.todayDiscounts || 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              (Poin & Voucher)
+            </p>
           </CardContent>
         </Card>
       </div>
