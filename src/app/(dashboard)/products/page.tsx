@@ -386,7 +386,7 @@ const handleStockSubmit = async (e: FormEvent) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                {/* <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="stock" className="text-right">
                     Stok
                   </Label>
@@ -397,7 +397,7 @@ const handleStockSubmit = async (e: FormEvent) => {
                     onChange={handleInputChange}
                     className="col-span-3"
                   />
-                </div>
+                </div> */}
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="minimumStock" className="text-right">
                     Stok Min.

@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   BrainCircuit,
   Clock,
+  ClipboardList,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -76,6 +77,12 @@ const navLinks = [
     label: "Produk",
     icon: Package,
     adminOnly: false, // Kasir boleh lihat (tapi terbatas, diatur di halaman produk)
+  },
+  {
+    href: "/products/stock-opname",
+    label: "Stok Opname",
+    icon: ClipboardList,
+    adminOnly: true, // Hanya Admin yang boleh audit stok
   },
   {
     href: "/customers",
