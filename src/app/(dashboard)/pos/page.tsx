@@ -6,7 +6,6 @@ import axios from "@/lib/axios";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-// UI Layout
 import {
   ResizableHandle,
   ResizablePanel,
@@ -14,14 +13,21 @@ import {
 } from "@/components/ui/resizable";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, ShoppingCart } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ShoppingCart, Loader2, LogOut } from "lucide-react";
 
-// Komponen POS
 import { ProductListView } from "@/components/pos/product-list-view";
 import { CartView } from "@/components/pos/cart-view";
 import { PaymentModal } from "@/components/pos/payment-modal";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 
 // --- Tipe Data ---
 export interface Product {
@@ -47,28 +53,28 @@ interface PaymentMethod {
   name: string;
 }
 
-// --- Konstanta API ---
 const API_URL_PRODUCTS = "/products";
+const API_URL_CUSTOMERS = "/customers"; // <-- API Customer
 const API_URL_TRANSACTIONS = "/transactions";
 const API_URL_AUTH_ME = "/auth/me";
 const API_URL_PAYMENT_METHODS = "/payment-methods";
 const API_URL_SHIFTS = "/shifts";
-const API_URL_VOUCHER_CHECK = "/vouchers/check"; // <-- API BARU
+const API_URL_VOUCHER_CHECK = "/vouchers/check";
 
 export default function PosPage() {
   const router = useRouter();
 
-  // State Data
+  // Data
   const [products, setProducts] = useState<Product[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
-  // State UI
+  // UI
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  // State Transaksi
+  // Transaksi
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
@@ -76,7 +82,7 @@ export default function PosPage() {
   const [usePoints, setUsePoints] = useState(false);
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
 
-  // --- STATE VOUCHER (BARU) ---
+  // Voucher
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<{
     id: number;
@@ -84,20 +90,26 @@ export default function PosPage() {
     discount: number;
   } | null>(null);
   const [isCheckingVoucher, setIsCheckingVoucher] = useState(false);
-  // ----------------------------
 
-  // State Modal
+  // Modal Bayar
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [cashPaid, setCashPaid] = useState("");
 
-  // State Shift
+  // Shift
   const [isStartShiftOpen, setIsStartShiftOpen] = useState(false);
   const [isEndShiftOpen, setIsEndShiftOpen] = useState(false);
   const [startCashInput, setStartCashInput] = useState("");
   const [endCashInput, setEndCashInput] = useState("");
   const [isShiftLoading, setIsShiftLoading] = useState(false);
 
-  // State Keranjang
+  // --- STATE BARU: PELANGGAN BARU ---
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  // ----------------------------------
+
+  // Cart (LocalStorage)
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -113,7 +125,7 @@ export default function PosPage() {
       localStorage.setItem("myPerfumeCart", JSON.stringify(cart));
   }, [cart]);
 
-  // --- INITIAL FETCH ---
+  // Initial Fetch
   const fetchProducts = async () => {
     setIsLoadingProducts(true);
     try {
@@ -148,7 +160,37 @@ export default function PosPage() {
     fetchProducts();
   }, []);
 
-  // --- LOGIKA ---
+  // --- HANDLER PELANGGAN BARU (QUICK ADD) ---
+  const handleAddNewCustomer = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newCustomerName || !newCustomerPhone) return;
+
+    setIsAddingCustomer(true);
+    try {
+      // 1. Simpan ke database
+      const res = await axios.post(API_URL_CUSTOMERS, {
+        name: newCustomerName,
+        phoneNumber: newCustomerPhone,
+      });
+
+      // 2. Langsung pilih pelanggan baru tersebut
+      const newCustomer = res.data;
+      setSelectedCustomer(newCustomer);
+      toast.success(`Pelanggan ${newCustomer.name} ditambahkan.`);
+
+      // 3. Reset form
+      setNewCustomerName("");
+      setNewCustomerPhone("");
+      setIsAddCustomerOpen(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Gagal menambah pelanggan");
+    } finally {
+      setIsAddingCustomer(false);
+    }
+  };
+  // ------------------------------------------
+
+  // Logic Cart & Produk
   const filteredProducts = useMemo(() => {
     if (!productSearchTerm) return products;
     const lower = productSearchTerm.toLowerCase();
@@ -189,7 +231,7 @@ export default function PosPage() {
   const removeFromCart = (id: number) =>
     setCart((prev) => prev.filter((i) => i.id !== id));
 
-  // --- LOGIKA TOTAL (UPDATED) ---
+  // Logic Total
   const subtotal = useMemo(
     () =>
       cart.reduce(
@@ -199,7 +241,6 @@ export default function PosPage() {
     [cart]
   );
 
-  // Reset voucher jika cart berubah (Security)
   useEffect(() => {
     if (appliedVoucher) {
       setAppliedVoucher(null);
@@ -209,23 +250,20 @@ export default function PosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart.length]);
 
-  // 1. Kurangi Voucher
   const totalAfterVoucher = subtotal - (appliedVoucher?.discount || 0);
-  const amountForPoints = totalAfterVoucher > 0 ? totalAfterVoucher : 0;
-
-  // 2. Kurangi Poin
+  const safeTotalAfterVoucher = totalAfterVoucher > 0 ? totalAfterVoucher : 0;
   const discountPoints =
     usePoints && selectedCustomer && selectedCustomer.points >= 10 ? 30000 : 0;
-
-  // 3. Total Akhir
   const cartTotal =
-    amountForPoints - discountPoints > 0 ? amountForPoints - discountPoints : 0;
+    safeTotalAfterVoucher - discountPoints > 0
+      ? safeTotalAfterVoucher - discountPoints
+      : 0;
 
   useEffect(() => {
     if (!selectedCustomer || selectedCustomer.points < 10) setUsePoints(false);
   }, [selectedCustomer]);
 
-  // --- HANDLER VOUCHER (BARU) ---
+  // Handler Voucher
   const handleCheckVoucher = async () => {
     if (!voucherCode || cart.length === 0) return;
     setIsCheckingVoucher(true);
@@ -257,7 +295,7 @@ export default function PosPage() {
     setVoucherCode("");
   };
 
-  // --- HANDLER SHIFT ---
+  // Handler Shift
   const handleStartShift = async (e: FormEvent) => {
     e.preventDefault();
     if (!startCashInput) return;
@@ -300,7 +338,7 @@ export default function PosPage() {
     }
   };
 
-  // --- CHECKOUT & WA ---
+  // Checkout & WA
   const openWhatsApp = (receiptData: { cashPaid: number; change: number }) => {
     if (!selectedCustomer?.phoneNumber) return;
     const pointsEarned = Math.floor(cartTotal / 30000);
@@ -341,7 +379,7 @@ export default function PosPage() {
         usePoints,
         userId: currentUser?.id,
         paymentMethodId: selectedMethodId,
-        voucherId: appliedVoucher?.id || null, // <-- Kirim Voucher ID
+        voucherId: appliedVoucher?.id || null,
       });
 
       toast.success("Transaksi Berhasil");
@@ -351,16 +389,12 @@ export default function PosPage() {
       localStorage.removeItem("myPerfumeCart");
       setSelectedCustomer(null);
       setUsePoints(false);
-      setAppliedVoucher(null); // Reset Voucher
+      setAppliedVoucher(null);
       setVoucherCode("");
       setIsSheetOpen(false);
       setIsPaymentModalOpen(false);
       setCashPaid("");
-
-      const res = await axios.get(API_URL_PRODUCTS, {
-        params: { limit: 1000 },
-      });
-      setProducts(res.data.data);
+      fetchProducts();
     } catch (e: any) {
       toast.error(e.response?.data?.error || "Gagal Transaksi");
     } finally {
@@ -370,7 +404,7 @@ export default function PosPage() {
 
   return (
     <div className="h-full w-full">
-      {/* DESKTOP LAYOUT */}
+      {/* DESKTOP */}
       <div className="hidden h-full md:block">
         <ResizablePanelGroup direction="horizontal" className="h-full w-full">
           <ResizablePanel
@@ -399,7 +433,7 @@ export default function PosPage() {
               usePoints={usePoints}
               onUsePointsChange={setUsePoints}
               subtotal={subtotal}
-              discountPoints={discountPoints} // Kirim diskon Poin
+              discountAmount={discountPoints + (appliedVoucher?.discount || 0)}
               cartTotal={cartTotal}
               isSubmitting={isSubmitting}
               onUpdateQuantity={updateQuantity}
@@ -409,19 +443,21 @@ export default function PosPage() {
               selectedMethodId={selectedMethodId}
               onSelectMethod={setSelectedMethodId}
               onOpenEndShiftModal={() => setIsEndShiftOpen(true)}
-              // --- PROPS VOUCHER BARU ---
+              // Props Voucher
               voucherCode={voucherCode}
               onVoucherCodeChange={setVoucherCode}
               onCheckVoucher={handleCheckVoucher}
               onRemoveVoucher={handleRemoveVoucher}
               appliedVoucher={appliedVoucher}
               isCheckingVoucher={isCheckingVoucher}
+              // --- PROP BARU: Buka Modal Pelanggan ---
+              onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
 
-      {/* MOBILE LAYOUT */}
+      {/* MOBILE */}
       <div className="h-full md:hidden flex flex-col">
         <ProductListView
           products={filteredProducts}
@@ -449,7 +485,7 @@ export default function PosPage() {
               usePoints={usePoints}
               onUsePointsChange={setUsePoints}
               subtotal={subtotal}
-              discountPoints={discountPoints}
+              discountAmount={discountPoints + (appliedVoucher?.discount || 0)}
               cartTotal={cartTotal}
               isSubmitting={isSubmitting}
               onUpdateQuantity={updateQuantity}
@@ -466,6 +502,8 @@ export default function PosPage() {
               onRemoveVoucher={handleRemoveVoucher}
               appliedVoucher={appliedVoucher}
               isCheckingVoucher={isCheckingVoucher}
+              // --- PROP BARU ---
+              onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
             />
           </SheetContent>
         </Sheet>
@@ -481,6 +519,48 @@ export default function PosPage() {
         onSubmit={handleCheckout}
         isSubmitting={isSubmitting}
       />
+
+      {/* --- MODAL TAMBAH PELANGGAN (BARU) --- */}
+      <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Pelanggan Baru</DialogTitle>
+            <DialogDescription>Daftarkan pelanggan cepat.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddNewCustomer}>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label>Nama</Label>
+                <Input
+                  value={newCustomerName}
+                  onChange={(e) => setNewCustomerName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>No HP</Label>
+                <Input
+                  value={newCustomerPhone}
+                  onChange={(e) => setNewCustomerPhone(e.target.value)}
+                  required
+                  placeholder="08..."
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={isAddingCustomer}>
+                {isAddingCustomer ? (
+                  <Loader2 className="animate-spin mr-2" />
+                ) : null}{" "}
+                Simpan
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {/* ------------------------------------- */}
+
+      {/* Modal Shift */}
       <Dialog open={isStartShiftOpen} onOpenChange={() => {}}>
         <DialogContent
           className="sm:max-w-[400px]"
@@ -500,7 +580,7 @@ export default function PosPage() {
               required
               autoFocus
             />
-            <Button type="submit" className="w-full" disabled={isShiftLoading}>
+            <Button type="submit" disabled={isShiftLoading}>
               {isShiftLoading ? (
                 <Loader2 className="animate-spin mr-2" />
               ) : null}{" "}
@@ -527,7 +607,6 @@ export default function PosPage() {
             <Button
               type="submit"
               variant="destructive"
-              className="w-full"
               disabled={isShiftLoading}
             >
               {isShiftLoading ? (
