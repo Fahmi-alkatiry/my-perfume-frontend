@@ -4,8 +4,9 @@
 import { useState, useEffect } from "react";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { id as dateFnsLocaleId } from "date-fns/locale";
+import { exportToExcel } from "@/lib/export";
+// import { format } from "date-fns";
+// import { id as dateFnsLocaleId } from "date-fns/locale";
 
 // Komponen UI
 import { Button } from "@/components/ui/button";
@@ -34,9 +35,10 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Loader2,
+  // Loader2,
   ChevronLeft,
   ChevronRight,
+  Download,
   Search,
 } from "lucide-react";
 
@@ -125,6 +127,27 @@ export default function StockHistoryPage() {
     });
   };
 
+  const handleExport = () => {
+    if (history.length === 0) {
+      toast.error("Tidak ada data");
+      return;
+    }
+
+    const exportData = history.map((item) => ({
+      "Tanggal": new Date(item.createdAt).toLocaleDateString("id-ID"),
+      "Waktu": new Date(item.createdAt).toLocaleTimeString("id-ID"),
+      "Nama Produk": item.product.name,
+      "Kode Produk": item.product.productCode,
+      "Tipe": item.type, // IN / OUT
+      "Jumlah": item.quantity,
+      "Keterangan": item.notes || "-",
+      "Admin": item.user?.name || "N/A"
+    }));
+
+    exportToExcel(exportData, `Riwayat_Stok_${new Date().toISOString().split('T')[0]}`);
+    toast.success("Riwayat stok diunduh");
+  };
+
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > paginationInfo.totalPages) return;
     setApiQuery((prev) => ({ ...prev, page: newPage }));
@@ -174,6 +197,9 @@ export default function StockHistoryPage() {
 
         <Button onClick={handleFilterApply} className="w-full md:w-auto">
           Terapkan Filter
+        </Button>
+        <Button variant="outline" size="icon" onClick={handleExport} title="Download Excel">
+          <Download className="h-4 w-4" />
         </Button>
       </div>
 

@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from "react";
 import axios from "@/lib/axios";
+import { exportToExcel } from "@/lib/export"; // Helper kita
 import { toast } from "sonner";
 import { format, startOfMonth } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
@@ -51,7 +52,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarIcon, ChevronLeft, ChevronRight, Ban, Eye } from "lucide-react";
+import { Loader2, CalendarIcon, ChevronLeft, ChevronRight, Ban, Eye, Download } from "lucide-react";
 
 // --- Tipe Data ---
 interface TransactionDetail {
@@ -152,6 +153,36 @@ export default function ReportsPage() {
     setApiQuery((prev) => ({ ...prev, page: newPage }));
   };
 
+
+  // --- FUNGSI EXPORT EXCEL ---
+  const handleExport = async () => {
+    if (transactions.length === 0) {
+      toast.error("Tidak ada data untuk diekspor");
+      return;
+    }
+
+    // 1. Format data agar rapi di Excel
+    // Kita ambil semua data (tanpa pagination) untuk export
+    // Untuk simplifikasi saat ini, kita export data yang sedang tampil.
+    // (Idealnya: panggil API lagi tanpa limit untuk download semua)
+    
+    const exportData = transactions.map((tx) => ({
+      "ID Transaksi": tx.id,
+      "Tanggal": new Date(tx.createdAt).toLocaleDateString("id-ID"),
+      "Waktu": new Date(tx.createdAt).toLocaleTimeString("id-ID"),
+      "Pelanggan": tx.customer?.name || "Guest",
+      "Kasir": tx.user?.name || "N/A",
+      "Metode Bayar": tx.paymentMethod?.name || "N/A",
+      "Total Belanja": tx.finalAmount,
+      "Profit": tx.totalMargin,
+      "Status": tx.status
+    }));
+
+    // 2. Panggil fungsi download
+    exportToExcel(exportData, `Laporan_Transaksi_${format(new Date(), "yyyy-MM-dd")}`);
+    toast.success("Laporan berhasil diunduh");
+  };
+
   // Handler Batal
   const onCancelClick = (id: number) => {
     setTransactionToCancel(id);
@@ -220,6 +251,11 @@ export default function ReportsPage() {
           </PopoverContent>
         </Popover>
         <Button onClick={handleFilterApply}>Terapkan Filter</Button>
+        {/* --- TOMBOL EXPORT BARU --- */}
+        <Button variant="outline" onClick={handleExport} className="ml-auto">
+          <Download className="mr-2 h-4 w-4" /> Export Excel
+        </Button>
+        {/* -------------------------- */}
       </div>
 
       {/* Konten */}
