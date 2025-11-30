@@ -33,6 +33,8 @@ import {
 interface SummaryData {
   todayRevenue: number;
   todayProfit: number;
+  todayNetProfit: number; // <-- TAMBAHKAN INI
+  todayExpenses: number;  // <-- TAMBAHKAN INI
   todayTransactions: number;
   todayItemsSold: number;
 }
