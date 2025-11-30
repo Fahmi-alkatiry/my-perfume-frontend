@@ -339,36 +339,41 @@ export default function PosPage() {
   };
 
   // Checkout & WA
-  const openWhatsApp = (receiptData: { cashPaid: number; change: number }) => {
-    if (!selectedCustomer?.phoneNumber) return;
-    const pointsEarned = Math.floor(cartTotal / 30000);
-    const pointsUsed = usePoints ? 10 : 0;
-    const finalPoints = selectedCustomer.points - pointsUsed + pointsEarned;
+const openWhatsApp = (receiptData: { cashPaid: number; change: number }) => {
+  if (!selectedCustomer?.phoneNumber) return;
 
-    const itemsList = cart
-      .map(
-        (i, idx) =>
-          `${idx + 1}. ${i.name} ${i.quantity}x Rp ${Number(
-            i.sellingPrice
-          ).toLocaleString("id-ID")}`
-      )
-      .join("\n");
-    let phone = selectedCustomer.phoneNumber.trim().replace(/^0/, "62");
+  const pointsEarned = Math.floor(cartTotal / 30000);
+  const pointsUsed = usePoints ? 10 : 0;
+  const finalPoints = selectedCustomer.points - pointsUsed + pointsEarned;
 
-    const msg = `*My Perfume*\nTotal: Rp ${cartTotal.toLocaleString(
-      "id-ID"
-    )}\nTunai: Rp ${receiptData.cashPaid.toLocaleString(
-      "id-ID"
-    )}\nKembalian: Rp ${receiptData.change.toLocaleString(
-      "id-ID"
-    )}\n\n${itemsList}\n\nSisa Poin: ${finalPoints}\nTerima kasih!`;
-    window.open(
-      `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(
-        msg
-      )}`,
-      "_blank"
-    );
-  };
+  const itemsList = cart
+    .map(
+      (i, idx) =>
+        `${idx + 1}. ${i.name} ${i.quantity}x Rp ${Number(i.sellingPrice).toLocaleString("id-ID")}`
+    )
+    .join("\n");
+
+  // --- Nomor WhatsApp Normalize ---
+  let phone = selectedCustomer.phoneNumber.trim();
+  if (phone.startsWith("0")) phone = phone.replace(/^0/, "62");
+  if (!phone.startsWith("62")) phone = "62" + phone;
+
+  // Deteksi device
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const baseUrl = isMobile
+    ? "https://api.whatsapp.com/send"
+    : "https://web.whatsapp.com/send";
+
+  const msg = `*My Perfume*\nTotal: Rp ${cartTotal.toLocaleString(
+    "id-ID"
+  )}\nTunai: Rp ${receiptData.cashPaid.toLocaleString(
+    "id-ID"
+  )}\nKembalian: Rp ${receiptData.change.toLocaleString(
+    "id-ID"
+  )}\n\n${itemsList}\n\nSisa Poin: ${finalPoints}\nTerima kasih!`;
+
+  window.open(`${baseUrl}?phone=${phone}&text=${encodeURIComponent(msg)}`, "_blank");
+};
 
   const handleCheckout = async (cashPaid: number, change: number) => {
     setIsSubmitting(true);
