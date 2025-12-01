@@ -192,21 +192,50 @@ export default function CustomersPage() {
     setIsDeleteAlertOpen(true);
   };
 
+  const normalizePhone = (phone: string) => {
+  let cleaned = phone.replace(/[^0-9]/g, ""); // hilangkan spasi/tanda + - .
+
+  if (cleaned.startsWith("0")) {
+    cleaned = "62" + cleaned.substring(1);
+  }
+
+  if (cleaned.startsWith("62")) {
+    return cleaned;
+  }
+
+  return "62" + cleaned;
+};
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormState((prev) => ({ ...prev, [id]: value }));
   };
 
+
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    try {
-      if (customerToEdit) {
-        await axios.put(`${API_URL}/${customerToEdit.id}`, formState);
-        toast.success("Pelanggan diperbarui.");
-      } else {
-        await axios.post(API_URL, formState);
-        toast.success("Pelanggan ditambahkan.");
-      }
+  e.preventDefault();
+
+  const phoneRegex = /^(^\+?62|0)(\d{9,13})$/;
+
+
+  const normalized = normalizePhone(formState.phoneNumber);
+
+  if (!phoneRegex.test(normalized)) {
+    toast.error("Nomor HP tidak valid!");
+    return;
+  }
+
+  const payload = { ...formState, phoneNumber: normalized };
+
+  try {
+    if (customerToEdit) {
+      await axios.put(`${API_URL}/${customerToEdit.id}`, payload);
+      toast.success("Pelanggan diperbarui.");
+    } else {
+      await axios.post(API_URL, payload);
+      toast.success("Pelanggan ditambahkan.");
+    }
+
       const response = await axios.get(API_URL, { params: apiQuery });
       setCustomers(response.data.data);
       setIsFormOpen(false);

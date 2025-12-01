@@ -160,17 +160,40 @@ export default function PosPage() {
     fetchProducts();
   }, []);
 
+    const normalizePhone = (phone: string) => {
+  let cleaned = phone.replace(/[^0-9]/g, ""); // hilangkan spasi/tanda + - .
+
+  if (cleaned.startsWith("0")) {
+    cleaned = "62" + cleaned.substring(1);
+  }
+
+  if (cleaned.startsWith("62")) {
+    return cleaned;
+  }
+
+  return "62" + cleaned;
+};
+
   // --- HANDLER PELANGGAN BARU (QUICK ADD) ---
   const handleAddNewCustomer = async (e: FormEvent) => {
     e.preventDefault();
     if (!newCustomerName || !newCustomerPhone) return;
+
+     const phoneRegex = /^(^\+?62|0)(\d{9,13})$/;
+
+    const newCustomerPhoneNormalized = normalizePhone(newCustomerPhone);
+
+     if (!phoneRegex.test(newCustomerPhoneNormalized)) {
+    toast.error("Nomor HP tidak valid!");
+    return;
+  }
 
     setIsAddingCustomer(true);
     try {
       // 1. Simpan ke database
       const res = await axios.post(API_URL_CUSTOMERS, {
         name: newCustomerName,
-        phoneNumber: newCustomerPhone,
+        phoneNumber: newCustomerPhoneNormalized,
       });
 
       // 2. Langsung pilih pelanggan baru tersebut
