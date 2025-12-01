@@ -103,6 +103,7 @@ const API_URL = "/reports/transactions";
 
 export default function ReportsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
 
   // State Dialog Pembatalan
@@ -170,7 +171,6 @@ export default function ReportsPage() {
     });
   };
 
-
   // --- FUNGSI EXPORT EXCEL ---
   const handleExport = async () => {
     if (transactions.length === 0) {
@@ -182,24 +182,26 @@ export default function ReportsPage() {
     // Kita ambil semua data (tanpa pagination) untuk export
     // Untuk simplifikasi saat ini, kita export data yang sedang tampil.
     // (Idealnya: panggil API lagi tanpa limit untuk download semua)
-    
+
     const exportData = transactions.map((tx) => ({
       "ID Transaksi": tx.id,
-      "Tanggal": new Date(tx.createdAt).toLocaleDateString("id-ID"),
-      "Waktu": new Date(tx.createdAt).toLocaleTimeString("id-ID"),
-      "Pelanggan": tx.customer?.name || "Guest",
-      "Kasir": tx.user?.name || "N/A",
+      Tanggal: new Date(tx.createdAt).toLocaleDateString("id-ID"),
+      Waktu: new Date(tx.createdAt).toLocaleTimeString("id-ID"),
+      Pelanggan: tx.customer?.name || "Guest",
+      Kasir: tx.user?.name || "N/A",
       "Metode Bayar": tx.paymentMethod?.name || "N/A",
       "Total Belanja": tx.finalAmount,
-      "Profit": tx.totalMargin,
-      "Status": tx.status
+      Profit: tx.totalMargin,
+      Status: tx.status,
     }));
 
     // 2. Panggil fungsi download
-    exportToExcel(exportData, `Laporan_Transaksi_${format(new Date(), "yyyy-MM-dd")}`);
+    exportToExcel(
+      exportData,
+      `Laporan_Transaksi_${format(new Date(), "yyyy-MM-dd")}`
+    );
     toast.success("Laporan berhasil diunduh");
   };
-
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > paginationInfo.totalPages) return;
@@ -305,31 +307,31 @@ export default function ReportsPage() {
     setIsAssignDialogOpen(true);
   };
 
-const confirmAssignCustomer = async () => {
-  if (!transactionToAssign || !customerToAssign) return;
+  const confirmAssignCustomer = async () => {
+    if (!transactionToAssign || !customerToAssign) return;
 
-  setIsAssigning(true);
-  const process = toast.loading("Memproses...");
+    setIsAssigning(true);
+    const process = toast.loading("Memproses...");
 
-  try {
-    await axios.put(`/transactions/${transactionToAssign}/assign-customer`, {
-      customerId: customerToAssign.id,
-    });
+    try {
+      await axios.put(`/transactions/${transactionToAssign}/assign-customer`, {
+        customerId: customerToAssign.id,
+      });
 
-    toast.success("Pelanggan berhasil ditautkan & poin ditambahkan.", {
-      id: process,
-    });
+      toast.success("Pelanggan berhasil ditautkan & poin ditambahkan.", {
+        id: process,
+      });
 
-    fetchTransactions();
-    setIsAssignDialogOpen(false);
-  } catch (error: any) {
-    toast.error(error.response?.data?.error || "Gagal update transaksi", {
-      id: process,
-    });
-  } finally {
-    setIsAssigning(false);
-  }
-};
+      fetchTransactions();
+      setIsAssignDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Gagal update transaksi", {
+        id: process,
+      });
+    } finally {
+      setIsAssigning(false);
+    }
+  };
   // ------------------------------------------
 
   const formatCurrency = (amount: number) => {
@@ -401,7 +403,9 @@ const confirmAssignCustomer = async () => {
                   <TableHead>ID</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Pelanggan</TableHead>
+                  <TableHead>Kasir</TableHead>
                   <TableHead>Metode</TableHead>
+                  <TableHead className="text-right">Total Profit</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
@@ -445,7 +449,11 @@ const confirmAssignCustomer = async () => {
                       )}
                     </TableCell>
 
+                    <TableCell>{tx.user?.name || "-"}</TableCell>
                     <TableCell>{tx.paymentMethod?.name || "-"}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(tx.totalMargin)}
+                    </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(tx.finalAmount)}
                     </TableCell>
