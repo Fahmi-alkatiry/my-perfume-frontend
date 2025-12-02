@@ -235,71 +235,74 @@ export default function ReportsPage() {
   };
 
   // --- Logic Resend WA ---
-  const handleResendWA = (tx: Transaction) => {
-    if (!tx.customer || !tx.customer.phoneNumber) {
-      toast.error("Transaksi ini tidak memiliki nomor HP pelanggan.");
-      return;
-    }
+const handleResendWA = (tx: Transaction) => {
+  if (!tx.customer?.phoneNumber) {
+    toast.error("Transaksi ini tidak memiliki nomor HP pelanggan.");
+    return;
+  }
 
-    // Format tanggal dan jam
-    const dateStr = new Date(tx.createdAt).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+  // --- Format Tanggal & Waktu ---
+  const createdAt = new Date(tx.createdAt);
+  const dateStr = createdAt.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
-    const timeStr = new Date(tx.createdAt).toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const timeStr = createdAt.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-    // Format daftar item
-    const orderDetails = tx.details
-      .map(
-        (item, index) =>
-          `${index + 1}. ${item.product.name} ${item.quantity}x Rp ${Number(
-            item.priceAtTransaction
-          ).toLocaleString("id-ID")}`
-      )
-      .join("\n");
+  // --- Format Item List with Proper Column ---
+  const orderDetails = tx.details
+    .map(
+      (item, i) =>
+        `${i + 1}. ${item.product.name} — ${item.quantity}x Rp ${Number(
+          item.priceAtTransaction
+        ).toLocaleString("id-ID")}`
+    )
+    .join("\n");
 
-    // --- Normalisasi Nomor WhatsApp ---
-    let phone = tx.customer.phoneNumber.trim();
-    if (phone.startsWith("0")) phone = phone.replace(/^0/, "62");
-    if (!phone.startsWith("62")) phone = "62" + phone;
+  // --- Normalisasi Nomor WhatsApp ---
+  let phone = tx.customer.phoneNumber.replace(/\D/g, ""); // hapus spasi, -, dll
+  if (phone.startsWith("0")) phone = "62" + phone.slice(1);
+  if (!phone.startsWith("62")) phone = "62" + phone;
 
-    // Deteksi apakah device mobile atau desktop
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  // --- Deteksi device ---
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const baseUrl = isMobile
+    ? "https://api.whatsapp.com/send"
+    : "https://web.whatsapp.com/send";
 
-    const baseUrl = isMobile
-      ? "https://api.whatsapp.com/send"
-      : "https://web.whatsapp.com/send";
+  // --- Template WhatsApp Struk ---
+  const message = `🧾 *My Perfume - Struk Belanja*
+📍 Jl. Raya Panglegur, Kota Pamekasan
 
-    // --- Template Message ---
-    const message = [
-      `*My Perfume*`,
-      `Jl. Raya Panglegur`,
-      `Kota Pamekasan`,
-      ``,
-      `Tanggal : ${dateStr} pukul ${timeStr}`,
-      `Nama    : ${tx.customer.name}`,
-      `ID TRX  : #${tx.id}`,
-      ``,
-      `*Detail Pesanan:*`,
-      orderDetails,
-      ``,
-      `*Total:* Rp ${Number(tx.finalAmount).toLocaleString("id-ID")}`,
-      `Metode: ${tx.paymentMethod?.name || "-"}`,
-      ``,
-      `Follow @Myperfumeee_`,
-      `Terima kasih atas pesanan Anda `,
-    ].join("\n");
+🗓 ${dateStr} | ${timeStr}
+👤 Pelanggan: ${tx.customer.name}
+🔖 ID Transaksi: #${tx.id}
 
-    window.open(
-      `${baseUrl}?phone=${phone}&text=${encodeURIComponent(message)}`,
-      "_blank"
-    );
-  };
+━━━━━━━━━━━━━━━━
+   *Detail Pesanan*
+━━━━━━━━━━━━━━━━
+${orderDetails}
+
+💳 *Total:* Rp ${Number(tx.finalAmount).toLocaleString("id-ID")}
+💰 Pembayaran: ${tx.paymentMethod?.name || "-"}
+
+━━━━━━━━━━━━━━━━
+🙏 Terima kasih telah berbelanja di My Perfume!
+Simpan nomor ini untuk promo & katalog terbaru.
+IG: @Myperfumeee_`;
+
+  // Kirim ke WhatsApp
+  window.open(
+    `${baseUrl}?phone=${phone}&text=${encodeURIComponent(message)}`,
+    "_blank"
+  );
+};
+
   // --- FITUR BARU: HANDLER ASSIGN CUSTOMER ---
   const onAssignClick = (id: number) => {
     setTransactionToAssign(id);
