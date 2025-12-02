@@ -277,8 +277,8 @@ const handleResendWA = (tx: Transaction) => {
 
   // --- Template WhatsApp Struk ---
   const message = `🧾 *My Perfume - Struk Belanja*
-📍 Jl. Raya Panglegur, Kota Pamekasan
 
+📍 Jl. Raya Panglegur, Kota Pamekasan
 🗓 ${dateStr} | ${timeStr}
 👤 Pelanggan: ${tx.customer.name}
 🔖 ID Transaksi: #${tx.id}
