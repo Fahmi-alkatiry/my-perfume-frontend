@@ -24,6 +24,7 @@ import {
   ClipboardList,
   Wallet,
   Ticket,
+  Megaphone,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -103,6 +104,12 @@ const navLinks = [
     label: "Pelanggan",
     icon: Users,
     adminOnly: false, // Kasir boleh akses
+  },
+  {
+    href: "/broadcast",
+    label: "Broadcast",
+    icon: Megaphone,
+    adminOnly: true, // Hanya Admin!
   },
   {
     href: "/payment-methods",

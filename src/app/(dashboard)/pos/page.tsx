@@ -395,7 +395,7 @@ const openWhatsApp = (receiptData: { cashPaid: number; change: number }) => {
     "id-ID"
   )}\n\n${itemsList}\n\nSisa Poin: ${finalPoints}\nTerima kasih!`;
 
-  window.open(`${baseUrl}?phone=${phone}&text=${encodeURIComponent(msg)}`, "_blank");
+  // window.open(`${baseUrl}?phone=${phone}&text=${encodeURIComponent(msg)}`, "_blank");
 };
 
   const handleCheckout = async (cashPaid: number, change: number) => {
