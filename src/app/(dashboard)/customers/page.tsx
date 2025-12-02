@@ -95,7 +95,7 @@ interface PaginationInfo {
   limit: number;
 }
 
-const defaultFormState = { name: "", phoneNumber: "" };
+const defaultFormState = { name: "", phoneNumber: "", points: 0 };
 
 // API URL (Relative path agar ikut baseURL axios)
 const API_URL = "/customers";
@@ -206,7 +206,11 @@ export default function CustomersPage() {
 
   const handleOpenEditDialog = (customer: Customer) => {
     setCustomerToEdit(customer);
-    setFormState({ name: customer.name, phoneNumber: customer.phoneNumber });
+    setFormState({
+      name: customer.name,
+      phoneNumber: customer.phoneNumber,
+      points: customer.points,
+    });
     setIsFormOpen(true);
   };
 
@@ -229,7 +233,8 @@ export default function CustomersPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const phoneRegex = /^(^\+?62|0)(\d{9,13})$/;
+    const phoneRegex = /^62\d{9,13}$/;
+
     const normalized = normalizePhone(formState.phoneNumber);
 
     if (!phoneRegex.test(normalized)) {
@@ -237,7 +242,11 @@ export default function CustomersPage() {
       return;
     }
 
-    const payload = { ...formState, phoneNumber: normalized };
+    const payload = {
+      ...formState,
+      phoneNumber: normalized,
+      points: Number(formState.points),
+    };
 
     try {
       if (customerToEdit) {
@@ -520,6 +529,19 @@ export default function CustomersPage() {
                 className="col-span-3"
                 required
                 placeholder="08..."
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="points" className="text-right">
+                poin
+              </Label>
+              <Input
+                id="points"
+                value={formState.points}
+                onChange={handleInputChange}
+                className="col-span-3"
+                required
+                placeholder=""
               />
             </div>
             <DialogFooter>
