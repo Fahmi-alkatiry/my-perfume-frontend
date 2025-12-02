@@ -277,7 +277,7 @@ export default function ReportsPage() {
 
     // --- Template Message ---
     const message = [
-      `*My Perfume* (Kirim Ulang Struk)`,
+      `*My Perfume*`,
       `Jl. Raya Panglegur`,
       `Kota Pamekasan`,
       ``,
@@ -548,6 +548,17 @@ export default function ReportsPage() {
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 mt-4">
+                    {tx.status === "COMPLETED" && tx.customer && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-green-600 hover:bg-green-50"
+                        onClick={() => handleResendWA(tx)}
+                        title="Kirim WA"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

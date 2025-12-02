@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
-import axios from "@/lib/axios";
+import axios from "@/lib/axios"; // Pastikan dari @/lib/axios
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,7 +11,8 @@ import {
   Trash2,
   Search,
   Plus,
-  History, // <-- IKON BARU
+  History,
+  RefreshCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -56,7 +57,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area"; // <-- ScrollArea
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 // --- Tipe Data ---
 interface LoggedInUser {
@@ -70,9 +72,10 @@ interface Customer {
   name: string;
   phoneNumber: string;
   points: number;
+  rfmSegment?: string;
+  lastAnalysisDate?: string;
 }
 
-// --- Tipe Data Riwayat Belanja ---
 interface PurchaseHistory {
   id: number;
   createdAt: string;
@@ -92,32 +95,38 @@ interface PaginationInfo {
   limit: number;
 }
 
-const defaultFormState = { name: "", phoneNumber: "", points: 0 };
+const defaultFormState = { name: "", phoneNumber: "" };
+
+// API URL (Relative path agar ikut baseURL axios)
 const API_URL = "/customers";
 const API_URL_AUTH_ME = "/auth/me";
+const API_URL_RFM = "/rfm/analyze";
 
 export default function CustomersPage() {
+  // State Data
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(null);
 
+  // State Dialog Utama
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
-  // --- STATE BARU: RIWAYAT ---
+  // State Dialog Riwayat
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedCustomerHistory, setSelectedCustomerHistory] = useState<
     PurchaseHistory[]
   >([]);
   const [selectedCustomerName, setSelectedCustomerName] = useState("");
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  // ---------------------------
 
+  // State Aksi
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(
     null
   );
 
+  // State Query
   const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
     totalCount: 0,
     totalPages: 0,
@@ -126,39 +135,57 @@ export default function CustomersPage() {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [apiQuery, setApiQuery] = useState({ page: 1, search: "" });
+
+  // State Form
   const [formState, setFormState] = useState(defaultFormState);
 
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      setIsLoading(true);
-      try {
-        const response = await axios.get(API_URL, { params: apiQuery });
-        setCustomers(response.data.data);
-        setPaginationInfo(response.data.pagination);
-      } catch (error) {
-        toast.error("Gagal mengambil data pelanggan.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // --- FETCH DATA ---
+  const fetchCustomers = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get(API_URL, { params: apiQuery });
+      setCustomers(response.data.data);
+      setPaginationInfo(response.data.pagination);
+    } catch (error) {
+      toast.error("Gagal mengambil data pelanggan.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
         const res = await axios.get(API_URL_AUTH_ME);
         setCurrentUser(res.data);
-      } catch (error) {}
+      } catch (error) {
+        /* silent */
+      }
     };
 
     fetchCustomers();
     fetchCurrentUser();
   }, [apiQuery]);
 
-  // --- FUNCTION BARU: LIHAT RIWAYAT ---
+  // --- HANDLER RFM ---
+  const handleAnalyzeRFM = async () => {
+    setIsLoading(true);
+    try {
+      await axios.post(API_URL_RFM);
+      toast.success("Analisis Loyalitas Pelanggan Selesai!");
+      fetchCustomers(); // Refresh tabel
+    } catch (error) {
+      toast.error("Gagal menganalisis.");
+      setIsLoading(false);
+    }
+  };
+
+  // --- HANDLER RIWAYAT ---
   const handleOpenHistory = async (customer: Customer) => {
     setSelectedCustomerName(customer.name);
     setIsHistoryOpen(true);
     setIsLoadingHistory(true);
-    setSelectedCustomerHistory([]); // Reset dulu
+    setSelectedCustomerHistory([]);
 
     try {
       const res = await axios.get(`${API_URL}/${customer.id}/history`);
@@ -169,8 +196,8 @@ export default function CustomersPage() {
       setIsLoadingHistory(false);
     }
   };
-  // ------------------------------------
 
+  // --- HANDLER CRUD ---
   const handleOpenCreateDialog = () => {
     setCustomerToEdit(null);
     setFormState(defaultFormState);
@@ -179,11 +206,7 @@ export default function CustomersPage() {
 
   const handleOpenEditDialog = (customer: Customer) => {
     setCustomerToEdit(customer);
-    setFormState({
-      name: customer.name,
-      phoneNumber: customer.phoneNumber,
-      points: customer.points,
-    });
+    setFormState({ name: customer.name, phoneNumber: customer.phoneNumber });
     setIsFormOpen(true);
   };
 
@@ -193,51 +216,38 @@ export default function CustomersPage() {
   };
 
   const normalizePhone = (phone: string) => {
-  let cleaned = phone.replace(/[^0-9]/g, ""); // hilangkan spasi/tanda + - .
-
-  if (cleaned.startsWith("0")) {
-    cleaned = "62" + cleaned.substring(1);
-  }
-
-  if (cleaned.startsWith("62")) {
-    return cleaned;
-  }
-
-  return "62" + cleaned;
-};
+    let cleaned = phone.replace(/[^0-9]/g, "");
+    if (cleaned.startsWith("0")) cleaned = "62" + cleaned.substring(1);
+    if (cleaned.startsWith("62")) return cleaned;
+    return "62" + cleaned;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormState((prev) => ({ ...prev, [id]: value }));
   };
 
-
   const handleSubmit = async (e: FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
+    const phoneRegex = /^(^\+?62|0)(\d{9,13})$/;
+    const normalized = normalizePhone(formState.phoneNumber);
 
-  const phoneRegex = /^(^\+?62|0)(\d{9,13})$/;
-
-
-  const normalized = normalizePhone(formState.phoneNumber);
-
-  if (!phoneRegex.test(normalized)) {
-    toast.error("Nomor HP tidak valid!");
-    return;
-  }
-
-  const payload = { ...formState, phoneNumber: normalized };
-
-  try {
-    if (customerToEdit) {
-      await axios.put(`${API_URL}/${customerToEdit.id}`, payload);
-      toast.success("Pelanggan diperbarui.");
-    } else {
-      await axios.post(API_URL, payload);
-      toast.success("Pelanggan ditambahkan.");
+    if (!phoneRegex.test(normalized)) {
+      toast.error("Nomor HP tidak valid!");
+      return;
     }
 
-      const response = await axios.get(API_URL, { params: apiQuery });
-      setCustomers(response.data.data);
+    const payload = { ...formState, phoneNumber: normalized };
+
+    try {
+      if (customerToEdit) {
+        await axios.put(`${API_URL}/${customerToEdit.id}`, payload);
+        toast.success("Pelanggan diperbarui.");
+      } else {
+        await axios.post(API_URL, payload);
+        toast.success("Pelanggan ditambahkan.");
+      }
+      fetchCustomers();
       setIsFormOpen(false);
       setCustomerToEdit(null);
     } catch (error: any) {
@@ -251,8 +261,7 @@ export default function CustomersPage() {
     try {
       await axios.delete(`${API_URL}/${customerToDelete.id}`);
       toast.success("Pelanggan dihapus.");
-      const response = await axios.get(API_URL, { params: apiQuery });
-      setCustomers(response.data.data);
+      fetchCustomers();
       setIsDeleteAlertOpen(false);
       setCustomerToDelete(null);
     } catch (error: any) {
@@ -260,6 +269,7 @@ export default function CustomersPage() {
     }
   };
 
+  // --- HANDLER PAGINATION ---
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
     setApiQuery({ page: 1, search: searchTerm });
@@ -270,88 +280,39 @@ export default function CustomersPage() {
     setApiQuery((prev) => ({ ...prev, page: newPage }));
   };
 
+  // --- RENDER ---
   return (
     <div className="h-full overflow-auto p-4 lg:p-6">
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
         <h1 className="text-3xl font-bold">Manajemen Pelanggan</h1>
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogTrigger asChild>
-            <Button
-              className="w-full md:w-auto"
-              onClick={handleOpenCreateDialog}
-            >
-              <Plus className="mr-2 h-4 w-4" /> Tambah Pelanggan Baru
+        <div className="flex gap-2">
+          {currentUser?.role === "ADMIN" && (
+            <Button variant="outline" onClick={handleAnalyzeRFM}>
+              <RefreshCcw className="mr-2 h-4 w-4" /> Update Status Loyalitas
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>
-                {customerToEdit ? "Edit Pelanggan" : "Tambah Pelanggan Baru"}
-              </DialogTitle>
-              <DialogDescription>Masukkan data pelanggan.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Nama
-                </Label>
-                <Input
-                  id="name"
-                  value={formState.name}
-                  onChange={handleInputChange}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phoneNumber" className="text-right">
-                  No. HP
-                </Label>
-                <Input
-                  id="phoneNumber"
-                  value={formState.phoneNumber}
-                  onChange={handleInputChange}
-                  className="col-span-3"
-                  required
-                  placeholder="08..."
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="poin" className="text-right">
-                  poin
-                </Label>
-                <Input
-                  id="points"
-                  type="number"
-                  value={formState.points}
-                  onChange={(e) =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      points: Number(e.target.value),
-                    }))
-                  }
-                  className="col-span-3"
-                  required
-                />
-              </div>
-              <DialogFooter>
-                <Button type="submit">Simpan</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+          )}
+          <Button className="w-full md:w-auto" onClick={handleOpenCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" /> Tambah Pelanggan Baru
+          </Button>
+        </div>
       </div>
 
+      {/* Search */}
       <form onSubmit={handleSearchSubmit} className="flex gap-2 mb-4">
-        <Input
-          placeholder="Cari nama atau nomor HP..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1"
-        />
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cari nama atau nomor HP..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Button type="submit">Cari</Button>
       </form>
 
+      {/* Konten */}
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-10 w-full" />
@@ -360,6 +321,7 @@ export default function CustomersPage() {
         </div>
       ) : (
         <>
+          {/* Desktop Table */}
           <div className="rounded-md border hidden md:block">
             <Table>
               <TableHeader>
@@ -367,14 +329,17 @@ export default function CustomersPage() {
                   <TableHead>Nama Pelanggan</TableHead>
                   <TableHead>Nomor HP</TableHead>
                   <TableHead className="text-right">Poin</TableHead>
+                  <TableHead>Segmen (RFM)</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {customers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center h-24">
-                      Data tidak ditemukan.
+                    <TableCell colSpan={5} className="text-center h-24">
+                      {apiQuery.search
+                        ? "Tidak ditemukan."
+                        : "Belum ada data pelanggan."}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -387,18 +352,37 @@ export default function CustomersPage() {
                       <TableCell className="text-right font-bold text-blue-600">
                         {customer.points}
                       </TableCell>
+                      <TableCell>
+                        {customer.rfmSegment ? (
+                          <Badge
+                            className={
+                              customer.rfmSegment === "Champions"
+                                ? "bg-purple-600 hover:bg-purple-700"
+                                : customer.rfmSegment === "Loyal"
+                                ? "bg-green-600 hover:bg-green-700"
+                                : customer.rfmSegment === "At Risk"
+                                ? "bg-orange-500 hover:bg-orange-600"
+                                : "bg-gray-500 hover:bg-gray-600"
+                            }
+                          >
+                            {customer.rfmSegment}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            -
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          {/* --- TOMBOL HISTORY --- */}
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => handleOpenHistory(customer)}
-                            title="Lihat Riwayat Belanja"
+                            title="Lihat Riwayat"
                           >
                             <History className="h-4 w-4 text-green-600" />
                           </Button>
-                          {/* --------------------- */}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -425,11 +409,19 @@ export default function CustomersPage() {
             </Table>
           </div>
 
+          {/* Mobile Cards */}
           <div className="grid grid-cols-1 gap-4 md:hidden">
             {customers.map((customer) => (
               <Card key={customer.id}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{customer.name}</CardTitle>
+                  <CardTitle className="text-base flex justify-between">
+                    {customer.name}
+                    {customer.rfmSegment && (
+                      <Badge variant="secondary" className="text-xs">
+                        {customer.rfmSegment}
+                      </Badge>
+                    )}
+                  </CardTitle>
                   <CardDescription>{customer.phoneNumber}</CardDescription>
                 </CardHeader>
                 <CardContent className="pb-2">
@@ -443,7 +435,6 @@ export default function CustomersPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2 pt-2">
-                  {/* Tombol History Mobile */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -465,6 +456,7 @@ export default function CustomersPage() {
         </>
       )}
 
+      {/* Pagination */}
       <div className="flex justify-between items-center mt-4">
         <span className="text-sm text-muted-foreground">
           Total {paginationInfo.totalCount} pelanggan
@@ -495,6 +487,49 @@ export default function CustomersPage() {
         </div>
       </div>
 
+      {/* Dialog Form Create/Edit */}
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {customerToEdit ? "Edit Pelanggan" : "Tambah Pelanggan Baru"}
+            </DialogTitle>
+            <DialogDescription>Masukkan data pelanggan.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Nama
+              </Label>
+              <Input
+                id="name"
+                value={formState.name}
+                onChange={handleInputChange}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phoneNumber" className="text-right">
+                No. HP
+              </Label>
+              <Input
+                id="phoneNumber"
+                value={formState.phoneNumber}
+                onChange={handleInputChange}
+                className="col-span-3"
+                required
+                placeholder="08..."
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit">Simpan</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Konfirmasi Hapus */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -512,18 +547,16 @@ export default function CustomersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* --- DIALOG RIWAYAT BELANJA (BARU) --- */}
+      {/* Dialog Riwayat Belanja */}
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
         <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Riwayat Belanja: {selectedCustomerName}</DialogTitle>
             <DialogDescription>Daftar 20 transaksi terakhir.</DialogDescription>
           </DialogHeader>
-
           <ScrollArea className="flex-1 pr-4 -mr-4">
             {isLoadingHistory ? (
               <div className="space-y-2 py-4">
-                <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
@@ -562,7 +595,6 @@ export default function CustomersPage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
-      {/* ------------------------------------- */}
     </div>
   );
 }

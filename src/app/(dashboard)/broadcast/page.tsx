@@ -1,10 +1,9 @@
-// frontend/src/app/(dashboard)/broadcast/page.tsx
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useMemo } from "react";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
-import { Send, Megaphone, Loader2, AlertCircle } from "lucide-react";
+import { Send, Megaphone, Loader2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,144 +17,194 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const API_URL = "/broadcast/promo";
 
 export default function BroadcastPage() {
   const [message, setMessage] = useState("");
-  const [minPoints, setMinPoints] = useState("0");
   const [isSending, setIsSending] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
 
-  const isMessageTooShort = message.trim().length < 5;
+  const [filterType, setFilterType] = useState("ALL");
+  const [filterValue, setFilterValue] = useState("");
 
+  // Preview personalisasi
+  const previewText = useMemo(() => {
+    return message.replace(/{{nama}}/gi, "Budi");
+  }, [message]);
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (message.length > 400) {
-      toast.error("Pesan terlalu panjang (maks 500 karakter)");
-      return;
-    }
-
-    if (!message) {
+    if (!message.trim()) {
       toast.error("Pesan tidak boleh kosong");
       return;
     }
 
-    // Konfirmasi keamanan
+    if (filterType === "SEGMENT" && !filterValue) {
+      toast.error("Pilih segmen pelanggan dulu");
+      return;
+    }
+
+    if (filterType === "POINTS" && (!filterValue || Number(filterValue) < 0)) {
+      toast.error("Masukkan nilai poin yang valid");
+      return;
+    }
+
     const confirm = window.confirm(
-      "Apakah Anda yakin ingin mengirim pesan ini ke banyak pelanggan sekaligus?"
+      `Yakin ingin mengirim broadcast?\n\nFilter: ${filterType}\nPesan:\n${previewText}`
     );
     if (!confirm) return;
 
     setIsSending(true);
-    setResult(null);
 
     try {
       const res = await axios.post(API_URL, {
         message,
-        minPoints: minPoints === "" ? 0 : Number(minPoints),
+        filterType,
+        filterValue: filterType === "POINTS" ? Number(filterValue) : filterValue,
       });
 
-      toast.success("Broadcast berhasil diproses!");
-      setResult(res.data.message); // Pesan dari backend (misal: "Memulai broadcast ke 50 kontak...")
-      setMessage(""); // Reset form
+      toast.success("Broadcast dimulai 🚀", {
+        description: res.data.message,
+      });
+
+      setMessage("");
+      setFilterValue("");
+
     } catch (error: any) {
-      console.error(error);
-      const errMsg = error.response?.data?.error || "Gagal mengirim broadcast";
-      toast.error(errMsg);
+      toast.error(error.response?.data?.error || "Gagal mengirim broadcast");
     } finally {
       setIsSending(false);
     }
   };
 
   return (
-    <div className="h-full overflow-auto p-4 lg:p-6 max-w-3xl mx-auto">
-      <div className="mb-6">
+    <div className="h-full overflow-auto p-4 lg:p-6">
+      
+      {/* HEADER */}
+      <div>
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
           <Megaphone className="h-8 w-8 text-primary" />
           Broadcast Pesan
         </h1>
         <p className="text-muted-foreground">
-          Kirim pesan promosi massal ke WhatsApp pelanggan Anda.
+          Kirim promo ke pelanggan berdasarkan segmentasi atau poin.
         </p>
       </div>
 
+      {/* FILTER CARD */}
       <Card>
         <CardHeader>
-          <CardTitle>Kirim Pesan Baru</CardTitle>
-          <CardDescription>
-            Gunakan fitur ini dengan bijak untuk menghindari pemblokiran
-            WhatsApp.
-          </CardDescription>
+          <CardTitle>Target Audiens</CardTitle>
+          <CardDescription>Pilih siapa yang akan menerima pesan.</CardDescription>
         </CardHeader>
+
+        <CardContent className="space-y-4">
+
+          <div className="space-y-2">
+            <Label>Jenis Target</Label>
+            <Select
+              disabled={isSending}
+              value={filterType}
+              onValueChange={(v) => {
+                setFilterType(v);
+                setFilterValue("");
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih target..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Semua Pelanggan</SelectItem>
+                <SelectItem value="SEGMENT">Segmentasi Loyalitas (RFM)</SelectItem>
+                <SelectItem value="POINTS">Minimal Poin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {filterType === "SEGMENT" && (
+            <div className="p-4 bg-muted rounded-lg space-y-2 animate-in fade-in">
+              <Label>Pilih Segmen</Label>
+              <Select value={filterValue} onValueChange={setFilterValue} disabled={isSending}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih status..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Champions">🏆 Champions</SelectItem>
+                  <SelectItem value="Loyal">💚 Loyal</SelectItem>
+                  <SelectItem value="Potential">🌱 Potential</SelectItem>
+                  <SelectItem value="At Risk">⚠️ At Risk</SelectItem>
+                  <SelectItem value="Lost">💤 Lost</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {filterType === "POINTS" && (
+            <div className="p-4 bg-muted rounded-lg space-y-2 animate-in fade-in">
+              <Label>Minimal Poin</Label>
+              <Input
+                disabled={isSending}
+                type="number"
+                className="w-32 bg-white"
+                value={filterValue}
+                placeholder="0"
+                onChange={(e) => setFilterValue(e.target.value)}
+              />
+            </div>
+          )}
+
+        </CardContent>
+      </Card>
+
+      {/* MESSAGE CARD */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Isi Pesan</CardTitle>
+        </CardHeader>
+
         <form onSubmit={handleSend}>
           <CardContent className="space-y-4">
-            {/* Filter Target */}
+            
             <div className="space-y-2">
-              <Label>Target Pelanggan (Filter Poin)</Label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Kirim ke pelanggan dengan Poin minimal:
-                </span>
-                <Input
-                  type="number"
-                  className="w-24"
-                  value={minPoints}
-                  onChange={(e) => setMinPoints(e.target.value)}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Isi 0 untuk mengirim ke <b>SEMUA</b> pelanggan yang punya nomor
-                WA.
-              </p>
-            </div>
-
-            {/* Isi Pesan */}
-            <div className="space-y-2">
-              <Label>Isi Pesan</Label>
+              <Label>Template Pesan WhatsApp</Label>
               <Textarea
-                placeholder="Halo Kak, My Perfume lagi ada promo diskon 50% lho! Yuk mampir..."
+                disabled={isSending}
+                placeholder="Contoh: Hai {{nama}}, ada promo spesial untuk kamu!"
                 rows={6}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 className="resize-none"
               />
-              <p className="text-xs text-muted-foreground">
-                Tips: Buat pesan singkat, menarik, dan tidak terlihat seperti
-                spam.
-              </p>
+              <small className="text-muted-foreground text-xs">
+                  Variabel tersedia: <b>{"{{nama}}"}</b>  
+
+                <span className="ml-2 text-gray-500">({message.length} karakter)</span>
+              </small>
             </div>
 
-            {/* Alert Info */}
-            <Alert variant="default" className="bg-blue-50 border-blue-200">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-800">Info Sistem</AlertTitle>
-              <AlertDescription className="text-blue-700 text-xs">
-                Pesan akan dikirim secara antrian (delay 2-5 detik per pesan)
-                untuk keamanan nomor WhatsApp toko.
-              </AlertDescription>
-            </Alert>
-
-            {/* Result Message */}
-            {result && (
-              <Alert variant="default" className="bg-green-50 border-green-200">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertTitle className="text-green-800">Berhasil</AlertTitle>
-                <AlertDescription className="text-green-700">
-                  {result}
+            {message && (
+              <Alert className="bg-green-50 border-green-300">
+                <Users className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-800 font-semibold">Preview</AlertTitle>
+                <AlertDescription className="text-sm text-green-700">
+                  {previewText}
                 </AlertDescription>
               </Alert>
             )}
+
           </CardContent>
+
           <CardFooter className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={isSending || isMessageTooShort}
-              className="w-full md:w-auto"
-            >
+            <Button type="submit" disabled={isSending} className="w-full md:w-auto">
               {isSending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mengirim...
@@ -172,6 +221,3 @@ export default function BroadcastPage() {
     </div>
   );
 }
-
-// Ikon tambahan lokal
-import { CheckCircle } from "lucide-react";
