@@ -292,7 +292,7 @@ export default function ReportsPage() {
       `Metode: ${tx.paymentMethod?.name || "-"}`,
       ``,
       `Follow @Myperfumeee_`,
-      `Terima kasih atas pesanan Anda ❤️`,
+      `Terima kasih atas pesanan Anda `,
     ].join("\n");
 
     window.open(
