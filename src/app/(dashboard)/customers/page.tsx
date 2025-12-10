@@ -1,22 +1,22 @@
 // frontend/src/app/(dashboard)/customers/page.tsx
-
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
-import axios from "@/lib/axios"; // Pastikan dari @/lib/axios
+import axios from "@/lib/axios";
 import {
-  ChevronLeft,
-  ChevronRight,
   Pencil,
   Trash2,
   Search,
   Plus,
   History,
   RefreshCcw,
+  ArrowUpRight, // Ikon Poin Masuk
+  ArrowDownLeft,
+  ChevronLeft,
+  ChevronRightCircle, // Ikon Poin Keluar
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Komponen UI
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,7 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -59,6 +58,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // <-- IMPORT TABS
 
 // --- Tipe Data ---
 interface LoggedInUser {
@@ -66,7 +66,6 @@ interface LoggedInUser {
   name: string;
   role: "ADMIN" | "CASHIER";
 }
-
 interface Customer {
   id: number;
   name: string;
@@ -76,16 +75,21 @@ interface Customer {
   lastAnalysisDate?: string;
 }
 
+// Tipe Riwayat Belanja
 interface PurchaseHistory {
   id: number;
   createdAt: string;
   finalAmount: number;
-  details: {
-    quantity: number;
-    product: {
-      name: string;
-    };
-  }[];
+  details: { quantity: number; product: { name: string } }[];
+}
+
+// --- TIPE BARU: Riwayat Poin ---
+interface PointLog {
+  id: number;
+  createdAt: string;
+  pointsChange: number;
+  reason: string;
+  transactionId: number | null;
 }
 
 interface PaginationInfo {
@@ -95,38 +99,40 @@ interface PaginationInfo {
   limit: number;
 }
 
-const defaultFormState = { name: "", phoneNumber: "", points: 0 };
-
-// API URL (Relative path agar ikut baseURL axios)
+const defaultFormState = { name: "", phoneNumber: "" };
 const API_URL = "/customers";
 const API_URL_AUTH_ME = "/auth/me";
 const API_URL_RFM = "/rfm/analyze";
 
 export default function CustomersPage() {
-  // State Data
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(null);
 
-  // State Dialog Utama
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
-  // State Dialog Riwayat
+  // --- STATE RIWAYAT ---
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedCustomerName, setSelectedCustomerName] = useState("");
+
+  // Data Belanja
   const [selectedCustomerHistory, setSelectedCustomerHistory] = useState<
     PurchaseHistory[]
   >([]);
-  const [selectedCustomerName, setSelectedCustomerName] = useState("");
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // State Aksi
+  // Data Poin (BARU)
+  const [pointLogs, setPointLogs] = useState<PointLog[]>([]);
+  const [isLoadingPoints, setIsLoadingPoints] = useState(false);
+
+  // CRUD State
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(
     null
   );
 
-  // State Query
+  // Query State
   const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
     totalCount: 0,
     totalPages: 0,
@@ -135,11 +141,9 @@ export default function CustomersPage() {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [apiQuery, setApiQuery] = useState({ page: 1, search: "" });
-
-  // State Form
   const [formState, setFormState] = useState(defaultFormState);
 
-  // --- FETCH DATA ---
+  // --- Fetch Data Utama ---
   const fetchCustomers = async () => {
     setIsLoading(true);
     try {
@@ -158,65 +162,73 @@ export default function CustomersPage() {
       try {
         const res = await axios.get(API_URL_AUTH_ME);
         setCurrentUser(res.data);
-      } catch (error) {
-        /* silent */
-      }
+      } catch {}
     };
-
     fetchCustomers();
     fetchCurrentUser();
   }, [apiQuery]);
 
-  // --- HANDLER RFM ---
+  // --- Handlers ---
   const handleAnalyzeRFM = async () => {
     setIsLoading(true);
     try {
       await axios.post(API_URL_RFM);
-      toast.success("Analisis Loyalitas Pelanggan Selesai!");
-      fetchCustomers(); // Refresh tabel
-    } catch (error) {
+      toast.success("Analisis Selesai!");
+      fetchCustomers();
+    } catch {
       toast.error("Gagal menganalisis.");
       setIsLoading(false);
     }
   };
 
-  // --- HANDLER RIWAYAT ---
+  // Buka Dialog History (Load data belanja dulu)
   const handleOpenHistory = async (customer: Customer) => {
     setSelectedCustomerName(customer.name);
     setIsHistoryOpen(true);
+
+    // Load Purchase History
     setIsLoadingHistory(true);
     setSelectedCustomerHistory([]);
-
     try {
       const res = await axios.get(`${API_URL}/${customer.id}/history`);
       setSelectedCustomerHistory(res.data);
-    } catch (error) {
+    } catch {
       toast.error("Gagal memuat riwayat belanja.");
     } finally {
       setIsLoadingHistory(false);
     }
+
+    // Load Point History (BARU)
+    setIsLoadingPoints(true);
+    setPointLogs([]);
+    try {
+      const res = await axios.get(`${API_URL}/${customer.id}/points`);
+      setPointLogs(res.data);
+    } catch {
+      console.error("Gagal load poin");
+    } finally {
+      setIsLoadingPoints(false);
+    }
   };
 
-  // --- HANDLER CRUD ---
+  // ... (Handler CRUD Lainnya: Create, Edit, Delete sama seperti sebelumnya) ...
   const handleOpenCreateDialog = () => {
     setCustomerToEdit(null);
     setFormState(defaultFormState);
     setIsFormOpen(true);
   };
-
   const handleOpenEditDialog = (customer: Customer) => {
     setCustomerToEdit(customer);
-    setFormState({
-      name: customer.name,
-      phoneNumber: customer.phoneNumber,
-      points: customer.points,
-    });
+    setFormState({ name: customer.name, phoneNumber: customer.phoneNumber });
     setIsFormOpen(true);
   };
-
   const handleOpenDeleteDialog = (customer: Customer) => {
     setCustomerToDelete(customer);
     setIsDeleteAlertOpen(true);
+  };
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormState((prev) => ({ ...prev, [id]: value }));
   };
 
   const normalizePhone = (phone: string) => {
@@ -226,42 +238,28 @@ export default function CustomersPage() {
     return "62" + cleaned;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    setFormState((prev) => ({ ...prev, [id]: value }));
-  };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const phoneRegex = /^62\d{9,13}$/;
-
+    const phoneRegex = /^(^\+?62|0)(\d{9,13})$/;
     const normalized = normalizePhone(formState.phoneNumber);
-
     if (!phoneRegex.test(normalized)) {
       toast.error("Nomor HP tidak valid!");
       return;
     }
-
-    const payload = {
-      ...formState,
-      phoneNumber: normalized,
-      points: Number(formState.points),
-    };
-
     try {
+      const payload = { ...formState, phoneNumber: normalized };
       if (customerToEdit) {
         await axios.put(`${API_URL}/${customerToEdit.id}`, payload);
-        toast.success("Pelanggan diperbarui.");
+        toast.success("Diperbarui.");
       } else {
         await axios.post(API_URL, payload);
-        toast.success("Pelanggan ditambahkan.");
+        toast.success("Ditambahkan.");
       }
       fetchCustomers();
       setIsFormOpen(false);
       setCustomerToEdit(null);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || "Gagal menyimpan.";
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.error || "Gagal menyimpan.");
     }
   };
 
@@ -269,7 +267,7 @@ export default function CustomersPage() {
     if (!customerToDelete) return;
     try {
       await axios.delete(`${API_URL}/${customerToDelete.id}`);
-      toast.success("Pelanggan dihapus.");
+      toast.success("Dihapus.");
       fetchCustomers();
       setIsDeleteAlertOpen(false);
       setCustomerToDelete(null);
@@ -278,41 +276,36 @@ export default function CustomersPage() {
     }
   };
 
-  // --- HANDLER PAGINATION ---
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
     setApiQuery({ page: 1, search: searchTerm });
   };
-
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > paginationInfo.totalPages) return;
     setApiQuery((prev) => ({ ...prev, page: newPage }));
   };
 
-  // --- RENDER ---
   return (
     <div className="h-full overflow-auto p-4 lg:p-6">
-      {/* Header */}
+      {/* Header & Search (Sama) */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
         <h1 className="text-3xl font-bold">Manajemen Pelanggan</h1>
         <div className="flex gap-2">
           {currentUser?.role === "ADMIN" && (
             <Button variant="outline" onClick={handleAnalyzeRFM}>
-              <RefreshCcw className="mr-2 h-4 w-4" /> Update Status Loyalitas
+              <RefreshCcw className="mr-2 h-4 w-4" /> Update Status
             </Button>
           )}
-          <Button className="w-full md:w-auto" onClick={handleOpenCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" /> Tambah Pelanggan Baru
+          <Button onClick={handleOpenCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" /> Tambah Pelanggan
           </Button>
         </div>
       </div>
-
-      {/* Search */}
       <form onSubmit={handleSearchSubmit} className="flex gap-2 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Cari nama atau nomor HP..."
+            placeholder="Cari..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
@@ -321,24 +314,22 @@ export default function CustomersPage() {
         <Button type="submit">Cari</Button>
       </form>
 
-      {/* Konten */}
+      {/* Tabel Pelanggan (Sama) */}
       {isLoading ? (
         <div className="space-y-2">
-          <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
           <div className="rounded-md border hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nama Pelanggan</TableHead>
-                  <TableHead>Nomor HP</TableHead>
+                  <TableHead>Nama</TableHead>
+                  <TableHead>No HP</TableHead>
                   <TableHead className="text-right">Poin</TableHead>
-                  <TableHead>Segmen (RFM)</TableHead>
+                  <TableHead>Segmen</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -346,56 +337,34 @@ export default function CustomersPage() {
                 {customers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center h-24">
-                      {apiQuery.search
-                        ? "Tidak ditemukan."
-                        : "Belum ada data pelanggan."}
+                      Data tidak ditemukan.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  customers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell className="font-medium">
-                        {customer.name}
-                      </TableCell>
-                      <TableCell>{customer.phoneNumber}</TableCell>
+                  customers.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell>{c.phoneNumber}</TableCell>
                       <TableCell className="text-right font-bold text-blue-600">
-                        {customer.points}
+                        {c.points}
                       </TableCell>
                       <TableCell>
-                        {customer.rfmSegment ? (
-                          <Badge
-                            className={
-                              customer.rfmSegment === "Champions"
-                                ? "bg-purple-600 hover:bg-purple-700"
-                                : customer.rfmSegment === "Loyal"
-                                ? "bg-green-600 hover:bg-green-700"
-                                : customer.rfmSegment === "At Risk"
-                                ? "bg-orange-500 hover:bg-orange-600"
-                                : "bg-gray-500 hover:bg-gray-600"
-                            }
-                          >
-                            {customer.rfmSegment}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">
-                            -
-                          </span>
-                        )}
+                        {c.rfmSegment ? <Badge>{c.rfmSegment}</Badge> : "-"}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleOpenHistory(customer)}
-                            title="Lihat Riwayat"
+                            onClick={() => handleOpenHistory(c)}
+                            title="Riwayat"
                           >
                             <History className="h-4 w-4 text-green-600" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleOpenEditDialog(customer)}
+                            onClick={() => handleOpenEditDialog(c)}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -404,7 +373,7 @@ export default function CustomersPage() {
                               variant="ghost"
                               size="icon"
                               className="text-red-500"
-                              onClick={() => handleOpenDeleteDialog(customer)}
+                              onClick={() => handleOpenDeleteDialog(c)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -417,44 +386,32 @@ export default function CustomersPage() {
               </TableBody>
             </Table>
           </div>
-
-          {/* Mobile Cards */}
+          {/* Mobile Card View */}
           <div className="grid grid-cols-1 gap-4 md:hidden">
-            {customers.map((customer) => (
-              <Card key={customer.id}>
+            {customers.map((c) => (
+              <Card key={c.id}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex justify-between">
-                    {customer.name}
-                    {customer.rfmSegment && (
-                      <Badge variant="secondary" className="text-xs">
-                        {customer.rfmSegment}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>{customer.phoneNumber}</CardDescription>
+                  <CardTitle className="text-base">{c.name}</CardTitle>
+                  <CardDescription>{c.phoneNumber}</CardDescription>
                 </CardHeader>
                 <CardContent className="pb-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Poin Loyalitas
-                    </span>
-                    <span className="font-bold text-lg text-blue-600">
-                      {customer.points}
-                    </span>
+                  <div className="flex justify-between">
+                    <span>Poin</span>
+                    <span className="font-bold text-blue-600">{c.points}</span>
                   </div>
                 </CardContent>
-                <CardFooter className="flex justify-end gap-2 pt-2">
+                <CardFooter className="justify-end gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleOpenHistory(customer)}
+                    onClick={() => handleOpenHistory(c)}
                   >
-                    <History className="h-4 w-4 mr-2 text-green-600" /> Riwayat
+                    <History className="h-4 w-4 mr-2" /> Riwayat
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleOpenEditDialog(customer)}
+                    onClick={() => handleOpenEditDialog(c)}
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -465,7 +422,7 @@ export default function CustomersPage() {
         </>
       )}
 
-      {/* Pagination */}
+      {/* Pagination & Dialogs */}
       <div className="flex justify-between items-center mt-4">
         <span className="text-sm text-muted-foreground">
           Total {paginationInfo.totalCount} pelanggan
@@ -474,74 +431,43 @@ export default function CustomersPage() {
           <Button
             variant="outline"
             size="sm"
+            disabled={paginationInfo.currentPage === 1}
             onClick={() => handlePageChange(paginationInfo.currentPage - 1)}
-            disabled={paginationInfo.currentPage <= 1 || isLoading}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-medium">
-            Halaman {paginationInfo.currentPage}
-          </span>
           <Button
             variant="outline"
             size="sm"
+            disabled={paginationInfo.currentPage === paginationInfo.totalPages}
             onClick={() => handlePageChange(paginationInfo.currentPage + 1)}
-            disabled={
-              paginationInfo.currentPage >= paginationInfo.totalPages ||
-              isLoading
-            }
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRightCircle className="h-4 w-4" />
           </Button>
         </div>
       </div>
-
-      {/* Dialog Form Create/Edit */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {customerToEdit ? "Edit Pelanggan" : "Tambah Pelanggan Baru"}
-            </DialogTitle>
-            <DialogDescription>Masukkan data pelanggan.</DialogDescription>
+            <DialogTitle>{customerToEdit ? "Edit" : "Tambah"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Nama
-              </Label>
+            <div className="grid gap-2">
+              <Label>Nama</Label>
               <Input
                 id="name"
                 value={formState.name}
                 onChange={handleInputChange}
-                className="col-span-3"
                 required
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phoneNumber" className="text-right">
-                No. HP
-              </Label>
+            <div className="grid gap-2">
+              <Label>HP</Label>
               <Input
                 id="phoneNumber"
                 value={formState.phoneNumber}
                 onChange={handleInputChange}
-                className="col-span-3"
                 required
-                placeholder="08..."
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="points" className="text-right">
-                poin
-              </Label>
-              <Input
-                id="points"
-                value={formState.points}
-                onChange={handleInputChange}
-                className="col-span-3"
-                required
-                placeholder=""
               />
             </div>
             <DialogFooter>
@@ -550,15 +476,11 @@ export default function CustomersPage() {
           </form>
         </DialogContent>
       </Dialog>
-
-      {/* Dialog Konfirmasi Hapus */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Pelanggan?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tindakan ini permanen.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Hapus?</AlertDialogTitle>
+            <AlertDialogDescription>Permanen.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
@@ -569,52 +491,115 @@ export default function CustomersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog Riwayat Belanja */}
+      {/* --- DIALOG RIWAYAT (TAB) --- */}
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Riwayat Belanja: {selectedCustomerName}</DialogTitle>
-            <DialogDescription>Daftar 20 transaksi terakhir.</DialogDescription>
+            <DialogTitle>{selectedCustomerName}</DialogTitle>
+            <DialogDescription>Riwayat aktivitas pelanggan.</DialogDescription>
           </DialogHeader>
-          <ScrollArea className="flex-1 pr-4 -mr-4">
-            {isLoadingHistory ? (
-              <div className="space-y-2 py-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : selectedCustomerHistory.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                Belum ada riwayat belanja.
-              </p>
-            ) : (
-              <div className="space-y-4 py-4">
-                {selectedCustomerHistory.map((tx) => (
-                  <div key={tx.id} className="border rounded-lg p-3 text-sm">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-muted-foreground">
-                        {new Date(tx.createdAt).toLocaleDateString("id-ID", {
-                          dateStyle: "medium",
-                        })}
-                      </span>
-                      <span className="font-bold">
-                        Rp {tx.finalAmount.toLocaleString("id-ID")}
-                      </span>
+
+          <Tabs
+            defaultValue="purchase"
+            className="flex-1 flex flex-col min-h-0"
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="purchase">Riwayat Belanja</TabsTrigger>
+              <TabsTrigger value="points">Log Poin</TabsTrigger>
+            </TabsList>
+
+            {/* TAB 1: BELANJA */}
+            <TabsContent
+              value="purchase"
+              className="flex-1 overflow-auto pr-2 mt-2"
+            >
+              {isLoadingHistory ? (
+                <div className="py-4 space-y-2">
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                </div>
+              ) : selectedCustomerHistory.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">
+                  Belum ada belanja.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {selectedCustomerHistory.map((tx) => (
+                    <div key={tx.id} className="border rounded-lg p-3 text-sm">
+                      <div className="flex justify-between mb-2 border-b pb-2">
+                        <span className="text-muted-foreground">
+                          {new Date(tx.createdAt).toLocaleDateString("id-ID", {
+                            dateStyle: "medium",
+                          })}
+                        </span>
+                        <span className="font-bold">
+                          Rp {tx.finalAmount.toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                      <ul className="space-y-1">
+                        {tx.details.map((item, idx) => (
+                          <li key={idx} className="flex justify-between">
+                            <span>{item.product.name}</span>
+                            <span className="text-muted-foreground">
+                              x{item.quantity}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <ul className="space-y-1 bg-muted/50 p-2 rounded">
-                      {tx.details.map((item, idx) => (
-                        <li key={idx} className="flex justify-between">
-                          <span>{item.product.name}</span>
-                          <span className="text-muted-foreground">
-                            x{item.quantity}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* TAB 2: LOG POIN */}
+            <TabsContent
+              value="points"
+              className="flex-1 overflow-auto pr-2 mt-2"
+            >
+              {isLoadingPoints ? (
+                <div className="py-4 space-y-2">
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                </div>
+              ) : pointLogs.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">
+                  Belum ada riwayat poin.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {pointLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between border-b pb-2 last:border-0 p-2"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{log.reason}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(log.createdAt).toLocaleString("id-ID")}
+                        </p>
+                      </div>
+                      <div
+                        className={`flex items-center font-bold ${
+                          log.pointsChange > 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {log.pointsChange > 0 ? (
+                          <ArrowUpRight className="h-4 w-4 mr-1" />
+                        ) : (
+                          <ArrowDownLeft className="h-4 w-4 mr-1" />
+                        )}
+                        {log.pointsChange > 0 ? "+" : ""}
+                        {log.pointsChange}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
