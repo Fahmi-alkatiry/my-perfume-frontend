@@ -25,6 +25,7 @@ import {
   Wallet,
   Ticket,
   Megaphone,
+  Bot,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -35,7 +36,6 @@ interface LoggedInUser {
   name: string;
   role: "ADMIN" | "CASHIER";
 }
-
 
 // --- KONFIGURASI MENU & HAK AKSES ---
 const navLinks = [
@@ -117,6 +117,12 @@ const navLinks = [
     icon: CreditCard,
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
   },
+  {
+  href: "/ai-assistant",
+  label: "Asisten AI",
+  icon: Bot,
+  adminOnly: true, // Pastikan hanya admin
+},
 ];
 // --- Komponen NavLinkItems (Di luar render) ---
 function NavLinkItems({
@@ -190,8 +196,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         // 2. MIDDLEWARE LOGIC (Redirect Paksa)
         // Cek apakah halaman yang sedang dibuka adalah halaman khusus Admin
         // Kita cek apakah pathname saat ini cocok dengan salah satu link yang adminOnly: true
-        const currentRouteConfig = navLinks.find((link) => link.href === pathname);
-        
+        const currentRouteConfig = navLinks.find(
+          (link) => link.href === pathname
+        );
+
         // Jika user KASIR mencoba akses halaman ADMIN
         if (user.role !== "ADMIN" && currentRouteConfig?.adminOnly) {
           toast.error("Akses Ditolak", {
@@ -202,9 +210,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         // Tambahan: Jika Kasir mencoba akses root dashboard, lempar ke POS
         if (user.role !== "ADMIN" && pathname === "/dashboard") {
-            router.replace("/pos");
+          router.replace("/pos");
         }
-
       } catch (error) {
         console.error("Gagal memuat user", error);
         // Jika token tidak valid/session habis, middleware.ts akan menangani redirect ke login
@@ -218,10 +225,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   // Tampilkan loading kosong sampai cek role selesai (mencegah konten admin terlihat sekilas)
   if (isCheckingAuth) {
-    return <div className="flex h-screen w-full items-center justify-center bg-background"></div>;
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background"></div>
+    );
   }
 
-return (
+  return (
     <div
       className={`
         grid h-screen w-full overflow-hidden transition-all
@@ -240,18 +249,26 @@ return (
               {!isCollapsed && <span>My Perfume POS</span>}
             </Link>
           </div>
-          
+
           <nav className="flex-1  items-start px-2 py-4 text-sm font-medium overflow-auto">
             {/* Render Menu yang sudah difilter */}
-            <NavLinkItems pathname={pathname} isCollapsed={isCollapsed} links={filteredNavLinks} />
+            <NavLinkItems
+              pathname={pathname}
+              isCollapsed={isCollapsed}
+              links={filteredNavLinks}
+            />
           </nav>
 
           <div className="mt-auto p-4 border-t">
             {/* Info User Sedang Login */}
             {!isCollapsed && currentUser && (
-                <div className="mb-4 px-2 text-xs text-muted-foreground">
-                    Login sebagai: <span className="font-bold text-foreground">{currentUser.name}</span> ({currentUser.role})
-                </div>
+              <div className="mb-4 px-2 text-xs text-muted-foreground">
+                Login sebagai:{" "}
+                <span className="font-bold text-foreground">
+                  {currentUser.name}
+                </span>{" "}
+                ({currentUser.role})
+              </div>
             )}
             <Button
               size={isCollapsed ? "icon" : "sm"}
@@ -288,10 +305,19 @@ return (
                   <Store className="h-6 w-6 text-primary" />
                   <span>My Perfume POS</span>
                 </Link>
-                <NavLinkItems pathname={pathname} isCollapsed={false} links={filteredNavLinks} />
+                <NavLinkItems
+                  pathname={pathname}
+                  isCollapsed={false}
+                  links={filteredNavLinks}
+                />
               </nav>
               <div className="mt-auto">
-                <Button size="sm" variant="outline" className="w-full" onClick={handleLogout}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleLogout}
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Keluar
                 </Button>
@@ -314,11 +340,12 @@ return (
 
           <div className="w-full flex-1">
             <h1 className="text-lg font-semibold md:text-xl">
-              {navLinks.find((link) => link.href === pathname)?.label || "My Perfume"}
+              {navLinks.find((link) => link.href === pathname)?.label ||
+                "My Perfume"}
             </h1>
           </div>
         </header>
-        
+
         {/* KONTEN */}
         <main className="flex flex-1 flex-col overflow-auto">
           {children}
