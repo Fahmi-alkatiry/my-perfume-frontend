@@ -160,33 +160,33 @@ export default function PosPage() {
     fetchProducts();
   }, []);
 
-    const normalizePhone = (phone: string) => {
-  let cleaned = phone.replace(/[^0-9]/g, ""); // hilangkan spasi/tanda + - .
+  const normalizePhone = (phone: string) => {
+    let cleaned = phone.replace(/[^0-9]/g, ""); // hilangkan spasi/tanda + - .
 
-  if (cleaned.startsWith("0")) {
-    cleaned = "62" + cleaned.substring(1);
-  }
+    if (cleaned.startsWith("0")) {
+      cleaned = "62" + cleaned.substring(1);
+    }
 
-  if (cleaned.startsWith("62")) {
-    return cleaned;
-  }
+    if (cleaned.startsWith("62")) {
+      return cleaned;
+    }
 
-  return "62" + cleaned;
-};
+    return "62" + cleaned;
+  };
 
   // --- HANDLER PELANGGAN BARU (QUICK ADD) ---
   const handleAddNewCustomer = async (e: FormEvent) => {
     e.preventDefault();
     if (!newCustomerName || !newCustomerPhone) return;
 
-     const phoneRegex = /^(^\+?62|0)(\d{9,13})$/;
+    const phoneRegex = /^(^\+?62|0)(\d{9,13})$/;
 
     const newCustomerPhoneNormalized = normalizePhone(newCustomerPhone);
 
-     if (!phoneRegex.test(newCustomerPhoneNormalized)) {
-    toast.error("Nomor HP tidak valid!");
-    return;
-  }
+    if (!phoneRegex.test(newCustomerPhoneNormalized)) {
+      toast.error("Nomor HP tidak valid!");
+      return;
+    }
 
     setIsAddingCustomer(true);
     try {
@@ -362,41 +362,43 @@ export default function PosPage() {
   };
 
   // Checkout & WA
-const openWhatsApp = (receiptData: { cashPaid: number; change: number }) => {
-  if (!selectedCustomer?.phoneNumber) return;
+  const openWhatsApp = (receiptData: { cashPaid: number; change: number }) => {
+    if (!selectedCustomer?.phoneNumber) return;
 
-  const pointsEarned = Math.floor(cartTotal / 30000);
-  const pointsUsed = usePoints ? 10 : 0;
-  const finalPoints = selectedCustomer.points - pointsUsed + pointsEarned;
+    const pointsEarned = Math.floor(cartTotal / 30000);
+    const pointsUsed = usePoints ? 10 : 0;
+    const finalPoints = selectedCustomer.points - pointsUsed + pointsEarned;
 
-  const itemsList = cart
-    .map(
-      (i, idx) =>
-        `${idx + 1}. ${i.name} ${i.quantity}x Rp ${Number(i.sellingPrice).toLocaleString("id-ID")}`
-    )
-    .join("\n");
+    const itemsList = cart
+      .map(
+        (i, idx) =>
+          `${idx + 1}. ${i.name} ${i.quantity}x Rp ${Number(
+            i.sellingPrice
+          ).toLocaleString("id-ID")}`
+      )
+      .join("\n");
 
-  // --- Nomor WhatsApp Normalize ---
-  let phone = selectedCustomer.phoneNumber.trim();
-  if (phone.startsWith("0")) phone = phone.replace(/^0/, "62");
-  if (!phone.startsWith("62")) phone = "62" + phone;
+    // --- Nomor WhatsApp Normalize ---
+    let phone = selectedCustomer.phoneNumber.trim();
+    if (phone.startsWith("0")) phone = phone.replace(/^0/, "62");
+    if (!phone.startsWith("62")) phone = "62" + phone;
 
-  // Deteksi device
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const baseUrl = isMobile
-    ? "https://api.whatsapp.com/send"
-    : "https://web.whatsapp.com/send";
+    // Deteksi device
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const baseUrl = isMobile
+      ? "https://api.whatsapp.com/send"
+      : "https://web.whatsapp.com/send";
 
-  const msg = `*My Perfume*\nTotal: Rp ${cartTotal.toLocaleString(
-    "id-ID"
-  )}\nTunai: Rp ${receiptData.cashPaid.toLocaleString(
-    "id-ID"
-  )}\nKembalian: Rp ${receiptData.change.toLocaleString(
-    "id-ID"
-  )}\n\n${itemsList}\n\nSisa Poin: ${finalPoints}\nTerima kasih!`;
+    const msg = `*My Perfume*\nTotal: Rp ${cartTotal.toLocaleString(
+      "id-ID"
+    )}\nTunai: Rp ${receiptData.cashPaid.toLocaleString(
+      "id-ID"
+    )}\nKembalian: Rp ${receiptData.change.toLocaleString(
+      "id-ID"
+    )}\n\n${itemsList}\n\nSisa Poin: ${finalPoints}\nTerima kasih!`;
 
-  // window.open(`${baseUrl}?phone=${phone}&text=${encodeURIComponent(msg)}`, "_blank");
-};
+    // window.open(`${baseUrl}?phone=${phone}&text=${encodeURIComponent(msg)}`, "_blank");
+  };
 
   const handleCheckout = async (cashPaid: number, change: number) => {
     setIsSubmitting(true);

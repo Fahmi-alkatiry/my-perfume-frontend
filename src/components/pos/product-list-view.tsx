@@ -1,18 +1,19 @@
 "use client";
 
-import { useRef, useEffect } from "react"; // <-- 1. Import useRef & useEffect
+import { useRef, useEffect, useState } from "react"; // <-- 1. Import useRef & useEffect
 import { Search, Loader2, ScanBarcode } from "lucide-react"; // Tambah ikon Scan
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Html5QrcodeScanner } from "html5-qrcode";
 
 interface Product {
   id: number;
   name: string;
   type: "PERFUME" | "BOTTLE"; // <-- Tambahkan ini
   stock: number;
-  purchasePrice: number;      // <-- Tambahkan ini
+  purchasePrice: number; // <-- Tambahkan ini
   sellingPrice: number;
   productCode: string;
 }
@@ -21,7 +22,7 @@ interface ProductListViewProps {
   isLoading: boolean;
   searchTerm: string;
   onSearchChange: (value: string) => void;
-  
+
   onAddToCart: (product: Product) => void;
 }
 
@@ -32,6 +33,8 @@ export function ProductListView({
   onSearchChange,
   onAddToCart,
 }: ProductListViewProps) {
+  const [showScanner, setShowScanner] = useState(false);
+
   // 2. Buat referensi untuk input
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -55,7 +58,8 @@ export function ProductListView({
       );
 
       // Jika tidak ada kode persis, ambil hasil pencarian teratas (jika cuma 1)
-      const targetProduct = exactMatch || (products.length === 1 ? products[0] : null);
+      const targetProduct =
+        exactMatch || (products.length === 1 ? products[0] : null);
 
       if (targetProduct) {
         if (targetProduct.stock > 0) {
@@ -68,21 +72,46 @@ export function ProductListView({
     }
   };
 
+  const handleScanResult = (code: string) => {
+  const product = products.find(
+    (p) => p.productCode.toLowerCase() === code.toLowerCase()
+  );
+
+  if (product && product.stock > 0) {
+    onAddToCart(product);
+  }
+
+  setShowScanner(false);
+};
+
+
   // Fungsi helper untuk fokus manual
   const focusInput = () => {
-    if(inputRef.current) inputRef.current.focus();
+    if (inputRef.current) inputRef.current.focus();
   };
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
+
+      {showScanner && (
+  <BarcodeScanner
+    onScan={handleScanResult}
+    onClose={() => setShowScanner(false)}
+  />
+)}
       <div className="p-4 pb-0 flex justify-between items-center">
         <h2 className="text-2xl font-bold mb-4">Daftar Produk</h2>
         {/* Tombol kecil untuk re-focus jika kasir tidak sengaja klik luar */}
-        <Button variant="ghost" size="icon" onClick={focusInput} title="Fokus Scanner">
-            <ScanBarcode className="h-5 w-5 text-muted-foreground" />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setShowScanner(true)}
+          title="Scan Kamera"
+        >
+          <ScanBarcode className="h-5 w-5" />
         </Button>
       </div>
-      
+
       <div className="px-4 mb-4 relative">
         <Search className="absolute left-7 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
@@ -95,7 +124,7 @@ export function ProductListView({
           autoFocus // Tambahan HTML standard
         />
       </div>
-      
+
       <ScrollArea className="flex-1 min-h-0 px-4">
         {isLoading ? (
           <div className="flex justify-center py-10">
@@ -127,15 +156,57 @@ export function ProductListView({
                 </CardContent>
               </Card>
             ))}
-            
+
             {products.length === 0 && searchTerm !== "" && (
-                <div className="col-span-full text-center text-muted-foreground py-10">
-                    Produk tidak ditemukan.
-                </div>
+              <div className="col-span-full text-center text-muted-foreground py-10">
+                Produk tidak ditemukan.
+              </div>
             )}
           </div>
         )}
       </ScrollArea>
+    </div>
+  );
+}
+
+function BarcodeScanner({
+  onScan,
+  onClose,
+}: {
+  onScan: (code: string) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const scanner = new Html5QrcodeScanner(
+      "reader",
+      {
+        fps: 10,
+        qrbox: { width: 250, height: 150 },
+      },
+      false
+    );
+
+    scanner.render(
+      (decodedText) => {
+        onScan(decodedText);
+        scanner.clear();
+      },
+      () => {}
+    );
+
+    return () => {
+      scanner.clear().catch(() => {});
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex flex-col items-center justify-center">
+      <div className="bg-white p-4 rounded-lg w-full max-w-sm">
+        <div id="reader" />
+        <Button className="w-full mt-3" variant="destructive" onClick={onClose}>
+          Tutup Scanner
+        </Button>
+      </div>
     </div>
   );
 }
