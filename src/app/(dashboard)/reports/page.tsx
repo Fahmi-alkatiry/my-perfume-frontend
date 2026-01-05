@@ -172,18 +172,61 @@ export default function ReportsPage() {
   };
 
   // --- FUNGSI EXPORT EXCEL ---
-  const handleExport = async () => {
-    if (transactions.length === 0) {
-      toast.error("Tidak ada data untuk diekspor");
+  // const handleExport = async () => {
+  //   if (transactions.length === 0) {
+  //     toast.error("Tidak ada data untuk diekspor");
+  //     return;
+  //   }
+
+  //   // 1. Format data agar rapi di Excel
+  //   // Kita ambil semua data (tanpa pagination) untuk export
+  //   // Untuk simplifikasi saat ini, kita export data yang sedang tampil.
+  //   // (Idealnya: panggil API lagi tanpa limit untuk download semua)
+
+  //   const exportData = transactions.map((tx) => ({
+  //     "ID Transaksi": tx.id,
+  //     Tanggal: new Date(tx.createdAt).toLocaleDateString("id-ID"),
+  //     Waktu: new Date(tx.createdAt).toLocaleTimeString("id-ID"),
+  //     Pelanggan: tx.customer?.name || "Guest",
+  //     Kasir: tx.user?.name || "N/A",
+  //     "Metode Bayar": tx.paymentMethod?.name || "N/A",
+  //     "Total Belanja": tx.finalAmount,
+  //     Profit: tx.totalMargin,
+  //     Status: tx.status,
+  //   }));
+
+  //   // 2. Panggil fungsi download
+  //   exportToExcel(
+  //     exportData,
+  //     `Laporan_Transaksi_${format(new Date(), "yyyy-MM-dd")}`
+  //   );
+  //   toast.success("Laporan berhasil diunduh");
+  // };
+
+const handleExport = async () => {
+  // 1. Tampilkan loading toast agar user tahu proses sedang berjalan
+  const loadingToast = toast.loading("Menyiapkan data untuk diekspor...");
+
+  try {
+    // 2. Panggil API lagi, tapi ambil SEMUA data sesuai filter tanggal
+    // Kita kirim parameter limit yang besar (misal 9999) agar semua terambil
+    const response = await axios.get(API_URL, { 
+      params: { 
+        ...apiQuery, 
+        limit: 9999, // Ambil semua, bukan hanya 10
+        page: 1 
+      } 
+    });
+
+    const allTransactions = response.data.data;
+
+    if (allTransactions.length === 0) {
+      toast.error("Tidak ada data untuk diekspor", { id: loadingToast });
       return;
     }
 
-    // 1. Format data agar rapi di Excel
-    // Kita ambil semua data (tanpa pagination) untuk export
-    // Untuk simplifikasi saat ini, kita export data yang sedang tampil.
-    // (Idealnya: panggil API lagi tanpa limit untuk download semua)
-
-    const exportData = transactions.map((tx) => ({
+    // 3. Format data hasil fetch ulang tersebut
+    const exportData = allTransactions.map((tx: Transaction) => ({
       "ID Transaksi": tx.id,
       Tanggal: new Date(tx.createdAt).toLocaleDateString("id-ID"),
       Waktu: new Date(tx.createdAt).toLocaleTimeString("id-ID"),
@@ -195,13 +238,18 @@ export default function ReportsPage() {
       Status: tx.status,
     }));
 
-    // 2. Panggil fungsi download
+    // 4. Jalankan download
     exportToExcel(
       exportData,
-      `Laporan_Transaksi_${format(new Date(), "yyyy-MM-dd")}`
+      `Laporan_Transaksi_Lengkap_${format(new Date(), "yyyy-MM-dd")}`
     );
-    toast.success("Laporan berhasil diunduh");
-  };
+
+    toast.success("Laporan berhasil diunduh", { id: loadingToast });
+  } catch (error) {
+    console.error(error);
+    toast.error("Gagal mengambil data lengkap untuk ekspor", { id: loadingToast });
+  }
+};
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > paginationInfo.totalPages) return;
