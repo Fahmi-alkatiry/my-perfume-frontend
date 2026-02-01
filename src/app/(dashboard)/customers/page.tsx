@@ -219,7 +219,7 @@ export default function CustomersPage() {
   };
   const handleOpenEditDialog = (customer: Customer) => {
     setCustomerToEdit(customer);
-    setFormState({ name: customer.name, phoneNumber: customer.phoneNumber });
+    setFormState({ name: customer.name, phoneNumber: customer.phoneNumber, points: customer.points });
     setIsFormOpen(true);
   };
   const handleOpenDeleteDialog = (customer: Customer) => {
