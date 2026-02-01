@@ -99,7 +99,7 @@ interface PaginationInfo {
   limit: number;
 }
 
-const defaultFormState = { name: "", phoneNumber: "" };
+const defaultFormState = { name: "", phoneNumber: "", points: 0 };
 const API_URL = "/customers";
 const API_URL_AUTH_ME = "/auth/me";
 const API_URL_RFM = "/rfm/analyze";
@@ -247,7 +247,7 @@ export default function CustomersPage() {
       return;
     }
     try {
-      const payload = { ...formState, phoneNumber: normalized };
+      const payload = { ...formState, phoneNumber: normalized, points: Number(formState.points) };
       if (customerToEdit) {
         await axios.put(`${API_URL}/${customerToEdit.id}`, payload);
         toast.success("Diperbarui.");
@@ -446,6 +446,7 @@ export default function CustomersPage() {
           </Button>
         </div>
       </div>
+      {/* --- DIALOG FORM CREATE/EDIT --- */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
           <DialogHeader>
@@ -470,6 +471,16 @@ export default function CustomersPage() {
                 required
               />
             </div>
+            <div className="grid gap-2">
+              <Label>Poin</Label>
+              <Input
+                id="points"
+                type="number"
+                value={formState.points}
+                onChange={handleInputChange}
+              />
+            </div>
+            
             <DialogFooter>
               <Button type="submit">Simpan</Button>
             </DialogFooter>
