@@ -13,7 +13,7 @@ import {
   ArrowUpRight, // Ikon Poin Masuk
   ArrowDownLeft,
   ChevronLeft,
-  ChevronRightCircle, // Ikon Poin Keluar
+  ChevronRight, // Ikon Poin Keluar
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -144,18 +144,25 @@ export default function CustomersPage() {
   const [formState, setFormState] = useState(defaultFormState);
 
   // --- Fetch Data Utama ---
-  const fetchCustomers = async () => {
-    setIsLoading(true);
-    try {
-      const response = await axios.get(API_URL, { params: apiQuery });
-      setCustomers(response.data.data);
-      setPaginationInfo(response.data.pagination);
-    } catch (error) {
-      toast.error("Gagal mengambil data pelanggan.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ const fetchCustomers = async () => {
+  setIsLoading(true);
+  try {
+    const response = await axios.get(API_URL, {
+      params: {
+        ...apiQuery,
+        sort: "createdAt",
+        order: "desc",
+      },
+    });
+
+    setCustomers(response.data.data);
+    setPaginationInfo(response.data.pagination);
+  } catch (error) {
+    toast.error("Gagal mengambil data pelanggan.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -442,7 +449,7 @@ export default function CustomersPage() {
             disabled={paginationInfo.currentPage === paginationInfo.totalPages}
             onClick={() => handlePageChange(paginationInfo.currentPage + 1)}
           >
-            <ChevronRightCircle className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>

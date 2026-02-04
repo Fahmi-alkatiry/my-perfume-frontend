@@ -151,6 +151,7 @@ export default function ReportsPage() {
     try {
       const response = await axios.get(API_URL, { params: apiQuery });
       setTransactions(response.data.data);
+      console.log(response.data.data);
       setPaginationInfo(response.data.pagination);
     } catch (error: any) {
       toast.error("Gagal Memuat Laporan");

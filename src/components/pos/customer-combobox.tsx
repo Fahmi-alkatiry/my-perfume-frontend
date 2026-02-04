@@ -45,7 +45,12 @@ export function CustomerCombobox({ onSelectCustomer }: CustomerComboboxProps) {
       setIsLoading(true);
       try {
         const response = await axios.get(API_URL_CUSTOMERS, {
-          params: { search: search, limit: 3 },
+          params: {
+            search,
+            limit: 3,
+            sort: "createdAt",
+            order: "desc",
+          },
         });
         setCustomers(response.data.data);
       } catch (error) {
