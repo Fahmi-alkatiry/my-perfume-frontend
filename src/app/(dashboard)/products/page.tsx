@@ -62,6 +62,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProductFilterBar } from "@/components/products/ProductFilterBar";
+import { DashboardLoadingSkeleton } from "@/components/products/DashboardLoadingSkeleton";
+import { PaginationBar } from "@/components/products/PaginationBar";
 
 // --- Tipe Data User ---
 interface LoggedInUser {
@@ -102,6 +105,13 @@ const defaultFormState = {
   minimumStock: 5,
 };
 
+type FilterValues = {
+search: string;
+type?: string;
+sortByStock?: string;
+sortByPrice?: string;
+};
+
 const API_URL = "/products"; // Path relatif
 const API_URL_AUTH_ME = "/auth/me";
 
@@ -121,7 +131,7 @@ export default function ProductsPage() {
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [productToRestock, setProductToRestock] = useState<Product | null>(
-    null
+    null,
   );
   const [stockToAdd, setStockToAdd] = useState<number>(0);
 
@@ -135,7 +145,7 @@ export default function ProductsPage() {
     currentPage: 1,
     limit: 10,
   });
-  const [searchTerm, setSearchTerm] = useState("");
+  // const [searchTerm, setSearchTerm] = useState("");
   const [apiQuery, setApiQuery] = useState({ page: 1, search: "" });
 
   // State untuk form Create/Edit
@@ -157,22 +167,21 @@ export default function ProductsPage() {
     }
   };
 
-    const fetchCurrentUser = async () => {
-      try {
-        const res = await axios.get(API_URL_AUTH_ME);
-        setCurrentUser(res.data);
-      } catch (error) {
-        console.error(error);
-        toast.error("Gagal memuat data user");
-      }
-    };
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await axios.get(API_URL_AUTH_ME);
+      setCurrentUser(res.data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal memuat data user");
+    }
+  };
 
   // --- Fungsi Fetch Data ---
   useEffect(() => {
-  
     fetchProducts();
     fetchCurrentUser();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiQuery]);
 
   // --- Handler Pembuka Dialog ---
@@ -184,7 +193,7 @@ export default function ProductsPage() {
 
   const handleOpenEditDialog = (product: Product) => {
     setProductToEdit(product);
-   setFormState({
+    setFormState({
       name: product.name,
       type: product.type,
       stock: product.stock,
@@ -210,7 +219,7 @@ export default function ProductsPage() {
 
   // --- Handler Input Form ---
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { id, value } = e.target;
     const isNumberField = [
@@ -231,76 +240,86 @@ export default function ProductsPage() {
 
   // --- Handler Aksi (Submit) ---
   const handleSubmit = async (e: FormEvent) => {
-  e.preventDefault();
-  try {
-    if (productToEdit) {
-      await axios.put(`${API_URL}/${productToEdit.id}`, formState);
-      toast.success("Produk berhasil diperbarui.");
-    } else {
-      await axios.post(API_URL, formState);
-      toast.success("Produk baru berhasil ditambahkan.");
+    e.preventDefault();
+    try {
+      if (productToEdit) {
+        await axios.put(`${API_URL}/${productToEdit.id}`, formState);
+        toast.success("Produk berhasil diperbarui.");
+      } else {
+        await axios.post(API_URL, formState);
+        toast.success("Produk baru berhasil ditambahkan.");
+      }
+
+      setIsFormOpen(false);
+      setProductToEdit(null);
+      fetchProducts();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      toast.error("Gagal", {
+        description: error.response?.data?.error || "Gagal menyimpan produk.",
+      });
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
+
+    try {
+      await axios.delete(`${API_URL}/${productToDelete.id}`);
+      toast.success(`Produk ${productToDelete.name} berhasil dihapus.`);
+      setIsDeleteAlertOpen(false);
+      fetchProducts();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      toast.error("Gagal", {
+        description: error.response?.data?.error || "Gagal menghapus produk.",
+      });
+    }
+  };
+  const handleStockSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!productToRestock || stockToAdd <= 0) {
+      toast.error("Jumlah stok tidak valid.");
+      return;
     }
 
-    setIsFormOpen(false);
-    setProductToEdit(null);
-    fetchProducts();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    toast.error("Gagal", {
-      description: error.response?.data?.error || "Gagal menyimpan produk.",
-    });
-  }
-};
+    try {
+      await axios.post(`${API_URL}/${productToRestock.id}/add-stock`, {
+        quantity: stockToAdd,
+      });
 
-
-const handleDeleteConfirm = async () => {
-  if (!productToDelete) return;
-
-  try {
-    await axios.delete(`${API_URL}/${productToDelete.id}`);
-    toast.success(`Produk ${productToDelete.name} berhasil dihapus.`);
-    setIsDeleteAlertOpen(false);
-    fetchProducts();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    toast.error("Gagal", {
-      description: error.response?.data?.error || "Gagal menghapus produk.",
-    });
-  }
-};
-const handleStockSubmit = async (e: FormEvent) => {
-  e.preventDefault();
-  if (!productToRestock || stockToAdd <= 0) {
-    toast.error("Jumlah stok tidak valid.");
-    return;
-  }
-
-  try {
-    await axios.post(`${API_URL}/${productToRestock.id}/add-stock`, {
-      quantity: stockToAdd,
-    });
-
-    toast.success(`Stok ${productToRestock.name} berhasil ditambah.`);
-    setIsStockDialogOpen(false);
-    fetchProducts();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    toast.error("Gagal", {
-      description: error.response?.data?.error || "Gagal menambah stok.",
-    });
-  }
-};
+      toast.success(`Stok ${productToRestock.name} berhasil ditambah.`);
+      setIsStockDialogOpen(false);
+      fetchProducts();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      toast.error("Gagal", {
+        description: error.response?.data?.error || "Gagal menambah stok.",
+      });
+    }
+  };
 
   // --- Handler Query ---
-  const handleSearchSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setApiQuery({ ...apiQuery, page: 1, search: searchTerm });
-  };
+  // const handleSearchSubmit = (e: FormEvent) => {
+  //   e.preventDefault();
+  //   setApiQuery({ ...apiQuery, page: 1, search: searchTerm });
+  // };
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > paginationInfo.totalPages) return;
     setApiQuery((prev) => ({ ...prev, page: newPage }));
   };
+
+const handleFilterChange = (filter: FilterValues) => {
+setApiQuery((prev) => ({
+...prev,
+page: 1,
+search: filter.search,
+type: filter.type,
+sortByPrice: filter.sortByPrice,
+sortByStock: filter.sortByStock,
+}));
+};
 
   // --- RENDER (JSX) ---
   return (
@@ -456,15 +475,7 @@ const handleStockSubmit = async (e: FormEvent) => {
       </div>
 
       {/* Search Bar */}
-      <form onSubmit={handleSearchSubmit} className="flex gap-2 mb-4">
-  <Input
-    placeholder="Cari nama atau kode produk..."
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)}
-    className="flex-1"
-  />
-  <Button type="submit">Cari</Button>
-</form>
+      <ProductFilterBar onChange={handleFilterChange} />
 
       {/* Konten List (Loading / Data) */}
       {isLoading ? (
@@ -475,27 +486,27 @@ const handleStockSubmit = async (e: FormEvent) => {
           <div className="rounded-md border hidden md:block">
             <Table>
               <TableHeader>
-  <TableRow>
-    <TableHead>Kode</TableHead>
-    <TableHead>Nama Produk</TableHead>
-    <TableHead>Jenis</TableHead>
-    <TableHead>Stok</TableHead>
-    
-    {/* Benar */}
-    {currentUser?.role === "ADMIN" && (
-      <TableHead className="text-right">Harga Beli</TableHead>
-    )}
-    
-    <TableHead className="text-right">Harga Jual</TableHead>
-    
-    {/* --- PERBAIKAN DI SINI --- */}
-    {/* Jangan bungkus dengan TableHead lagi, langsung render kondisional */}
-    {currentUser?.role === "ADMIN" && (
-      <TableHead className="text-right">Aksi</TableHead>
-    )}
-    {/* ------------------------- */}
-  </TableRow>
-</TableHeader>
+                <TableRow>
+                  <TableHead>Kode</TableHead>
+                  <TableHead>Nama Produk</TableHead>
+                  <TableHead>Jenis</TableHead>
+                  <TableHead>Stok</TableHead>
+
+                  {/* Benar */}
+                  {currentUser?.role === "ADMIN" && (
+                    <TableHead className="text-right">Harga Beli</TableHead>
+                  )}
+
+                  <TableHead className="text-right">Harga Jual</TableHead>
+
+                  {/* --- PERBAIKAN DI SINI --- */}
+                  {/* Jangan bungkus dengan TableHead lagi, langsung render kondisional */}
+                  {currentUser?.role === "ADMIN" && (
+                    <TableHead className="text-right">Aksi</TableHead>
+                  )}
+                  {/* ------------------------- */}
+                </TableRow>
+              </TableHeader>
               <TableBody>
                 {products.length === 0 ? (
                   <TableRow>
@@ -604,7 +615,7 @@ const handleStockSubmit = async (e: FormEvent) => {
                         size="sm"
                         onClick={() => handleOpenStockDialog(product)}
                       >
-                        <PlusSquare className="h-4 w-4 mr-2" />
+                        <PlusSquare className="h-4 w-4 mr-2 text-blue-500" />
                         Stok
                       </Button>
                       <Button
@@ -634,39 +645,11 @@ const handleStockSubmit = async (e: FormEvent) => {
       )}
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4">
-        <span className="text-sm text-muted-foreground">
-          Total {paginationInfo.totalCount} produk
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(paginationInfo.currentPage - 1)}
-            disabled={paginationInfo.currentPage <= 1 || isLoading}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            <span className="ml-2">Sebelumnya</span>
-          </Button>
-          <span className="text-sm font-medium">
-            Halaman {paginationInfo.currentPage} dari{" "}
-            {paginationInfo.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(paginationInfo.currentPage + 1)}
-            disabled={
-              paginationInfo.currentPage >= paginationInfo.totalPages ||
-              isLoading
-            }
-          >
-            <span className="mr-2">Berikutnya</span>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
+      <PaginationBar
+        paginationInfo={paginationInfo}
+        isLoading={isLoading}
+        onPageChange={handlePageChange}
+      />
       {/* Dialog Konfirmasi Hapus */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
@@ -728,88 +711,6 @@ const handleStockSubmit = async (e: FormEvent) => {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-// ====================================================================
-// ================= Komponen Skeleton Loading ========================
-// ====================================================================
-function DashboardLoadingSkeleton({
-  isAdmin,
-}: {
-  isAdmin: boolean | undefined;
-}) {
-  return (
-    <div>
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-        <Skeleton className="h-9 w-64" />
-        {isAdmin && <Skeleton className="h-10 w-full md:w-40" />}
-      </div>
-      <div className="flex gap-2 mb-4">
-        <Skeleton className="h-10 flex-1" />
-        <Skeleton className="h-10 w-20" />
-      </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                <Skeleton className="h-5 w-16" />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-5 w-40" />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-5 w-12" />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-5 w-12" />
-              </TableHead>
-              {isAdmin && (
-                <TableHead className="text-right">
-                  <Skeleton className="h-5 w-24 ml-auto" />
-                </TableHead>
-              )}
-              <TableHead className="text-right">
-                <Skeleton className="h-5 w-24 ml-auto" />
-              </TableHead>
-              <TableHead className="text-right">
-                <Skeleton className="h-5 w-20 ml-auto" />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[...Array(5)].map((_, i) => (
-              <TableRow key={i}>
-                <TableCell>
-                  <Skeleton className="h-5 w-16" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-40" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-12" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-12" />
-                </TableCell>
-                {isAdmin && (
-                  <TableCell>
-                    <Skeleton className="h-5 w-24 ml-auto" />
-                  </TableCell>
-                )}
-                <TableCell>
-                  <Skeleton className="h-5 w-24 ml-auto" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-20 ml-auto" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
     </div>
   );
 }

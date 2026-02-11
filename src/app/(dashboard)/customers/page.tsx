@@ -59,6 +59,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // <-- IMPORT TABS
+import { PaginationBar } from "@/components/products/PaginationBar";
 
 // --- Tipe Data ---
 interface LoggedInUser {
@@ -129,7 +130,7 @@ export default function CustomersPage() {
   // CRUD State
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(
-    null
+    null,
   );
 
   // Query State
@@ -144,25 +145,25 @@ export default function CustomersPage() {
   const [formState, setFormState] = useState(defaultFormState);
 
   // --- Fetch Data Utama ---
- const fetchCustomers = async () => {
-  setIsLoading(true);
-  try {
-    const response = await axios.get(API_URL, {
-      params: {
-        ...apiQuery,
-        sort: "createdAt",
-        order: "desc",
-      },
-    });
+  const fetchCustomers = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get(API_URL, {
+        params: {
+          ...apiQuery,
+          sort: "createdAt",
+          order: "desc",
+        },
+      });
 
-    setCustomers(response.data.data);
-    setPaginationInfo(response.data.pagination);
-  } catch (error) {
-    toast.error("Gagal mengambil data pelanggan.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+      setCustomers(response.data.data);
+      setPaginationInfo(response.data.pagination);
+    } catch (error) {
+      toast.error("Gagal mengambil data pelanggan.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -226,7 +227,11 @@ export default function CustomersPage() {
   };
   const handleOpenEditDialog = (customer: Customer) => {
     setCustomerToEdit(customer);
-    setFormState({ name: customer.name, phoneNumber: customer.phoneNumber, points: customer.points });
+    setFormState({
+      name: customer.name,
+      phoneNumber: customer.phoneNumber,
+      points: customer.points,
+    });
     setIsFormOpen(true);
   };
   const handleOpenDeleteDialog = (customer: Customer) => {
@@ -254,7 +259,11 @@ export default function CustomersPage() {
       return;
     }
     try {
-      const payload = { ...formState, phoneNumber: normalized, points: Number(formState.points) };
+      const payload = {
+        ...formState,
+        phoneNumber: normalized,
+        points: Number(formState.points),
+      };
       if (customerToEdit) {
         await axios.put(`${API_URL}/${customerToEdit.id}`, payload);
         toast.success("Diperbarui.");
@@ -422,6 +431,15 @@ export default function CustomersPage() {
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-500"
+                    onClick={() => handleOpenDeleteDialog(c)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </CardFooter>
               </Card>
             ))}
@@ -430,29 +448,12 @@ export default function CustomersPage() {
       )}
 
       {/* Pagination & Dialogs */}
-      <div className="flex justify-between items-center mt-4">
-        <span className="text-sm text-muted-foreground">
-          Total {paginationInfo.totalCount} pelanggan
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={paginationInfo.currentPage === 1}
-            onClick={() => handlePageChange(paginationInfo.currentPage - 1)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={paginationInfo.currentPage === paginationInfo.totalPages}
-            onClick={() => handlePageChange(paginationInfo.currentPage + 1)}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+<PaginationBar
+  paginationInfo={paginationInfo}
+  isLoading={isLoading}
+  onPageChange={handlePageChange}
+/>
+
       {/* --- DIALOG FORM CREATE/EDIT --- */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
@@ -487,7 +488,7 @@ export default function CustomersPage() {
                 onChange={handleInputChange}
               />
             </div>
-            
+
             <DialogFooter>
               <Button type="submit">Simpan</Button>
             </DialogFooter>
