@@ -254,7 +254,7 @@ export default function PosPage() {
   const removeFromCart = (id: number) =>
     setCart((prev) => prev.filter((i) => i.id !== id));
 
-  // Logic Total
+  // --- LOGIC TOTAL & POIN VIRTUAL ---
   const subtotal = useMemo(
     () =>
       cart.reduce(
@@ -264,27 +264,31 @@ export default function PosPage() {
     [cart]
   );
 
-  useEffect(() => {
-    if (appliedVoucher) {
-      setAppliedVoucher(null);
-      setVoucherCode("");
-      toast.info("Keranjang berubah, voucher direset.");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart.length]);
-
-  const totalAfterVoucher = subtotal - (appliedVoucher?.discount || 0);
+  const voucherDiscount = appliedVoucher?.discount || 0;
+  const totalAfterVoucher = subtotal - voucherDiscount;
   const safeTotalAfterVoucher = totalAfterVoucher > 0 ? totalAfterVoucher : 0;
+
+  // 1. Hitung poin yang AKAN didapat dari transaksi ini (setelah voucher)
+  const potentialPoints = Math.floor(safeTotalAfterVoucher / 30000);
+  
+  // 2. Hitung total poin virtual (Poin Lama + Poin Baru)
+  const totalVirtualPoints = (selectedCustomer?.points || 0) + potentialPoints;
+
+  // 3. Diskon poin aktif jika total virtual >= 10
   const discountPoints =
-    usePoints && selectedCustomer && selectedCustomer.points >= 10 ? 30000 : 0;
+    usePoints && selectedCustomer && totalVirtualPoints >= 10 ? 30000 : 0;
+
   const cartTotal =
     safeTotalAfterVoucher - discountPoints > 0
       ? safeTotalAfterVoucher - discountPoints
       : 0;
 
+  // Update useEffect untuk reset usePoints jika poin virtual tidak cukup
   useEffect(() => {
-    if (!selectedCustomer || selectedCustomer.points < 10) setUsePoints(false);
-  }, [selectedCustomer]);
+    if (!selectedCustomer || totalVirtualPoints < 10) {
+      setUsePoints(false);
+    }
+  }, [selectedCustomer, totalVirtualPoints]);
 
   // Handler Voucher
   const handleCheckVoucher = async () => {
@@ -431,6 +435,9 @@ export default function PosPage() {
       setIsSubmitting(false);
     }
   };
+
+
+
 
   return (
     <div className="h-full w-full">
