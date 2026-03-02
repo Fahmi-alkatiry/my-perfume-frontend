@@ -106,6 +106,7 @@ export function CartView({
   isCheckingVoucher,
   // Prop Baru
   onOpenAddCustomer, // <-- Destructure ini
+  onHandleCheckout, // <-- Destructure handler checkout baru
 }: CartViewProps) {
   // Hitung diskon voucher dalam angka (untuk keperluan hitung poin)
   const voucherDiscount = appliedVoucher ? appliedVoucher.discount : 0;
@@ -358,7 +359,7 @@ export function CartView({
         <Button
           size="lg"
           className="w-full text-lg"
-          onClick={onOpenPaymentModal}
+          onClick={onHandleCheckout}
           disabled={isSubmitting || cart.length === 0 || !selectedMethodId}
         >
           Bayar

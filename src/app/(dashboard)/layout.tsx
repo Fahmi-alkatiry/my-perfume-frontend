@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
+import Script from "next/script";
 
 // --- Tipe Data User ---
 interface LoggedInUser {
@@ -118,11 +119,11 @@ const navLinks = [
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
   },
   {
-  href: "/ai-assistant",
-  label: "Asisten AI",
-  icon: Bot,
-  adminOnly: true, // Pastikan hanya admin
-},
+    href: "/ai-assistant",
+    label: "Asisten AI",
+    icon: Bot,
+    adminOnly: true, // Pastikan hanya admin
+  },
 ];
 // --- Komponen NavLinkItems (Di luar render) ---
 function NavLinkItems({
@@ -197,7 +198,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         // Cek apakah halaman yang sedang dibuka adalah halaman khusus Admin
         // Kita cek apakah pathname saat ini cocok dengan salah satu link yang adminOnly: true
         const currentRouteConfig = navLinks.find(
-          (link) => link.href === pathname
+          (link) => link.href === pathname,
         );
 
         // Jika user KASIR mencoba akses halaman ADMIN
@@ -237,6 +238,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         ${isCollapsed ? "md:grid-cols-[56px_1fr]" : "md:grid-cols-[240px_1fr]"}
       `}
     >
+      <Script
+        src="https://app.sandbox.midtrans.com/snap/snap.js"
+        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        strategy="lazyOnload"
+      />
       {/* 1. SIDEBAR (Desktop) */}
       <div className="hidden border-r bg-background md:block">
         <div className="flex h-full max-h-screen flex-col">
@@ -347,9 +353,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* KONTEN */}
-        <main className="flex flex-1 flex-col overflow-auto">
-          {children}
-        </main>
+        <main className="flex flex-1 flex-col overflow-auto">{children}</main>
       </div>
     </div>
   );

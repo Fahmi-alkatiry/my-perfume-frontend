@@ -53,6 +53,12 @@ interface PaymentMethod {
   name: string;
 }
 
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
+
 const API_URL_PRODUCTS = "/products";
 const API_URL_CUSTOMERS = "/customers"; // <-- API Customer
 const API_URL_TRANSACTIONS = "/transactions";
@@ -77,7 +83,7 @@ export default function PosPage() {
   // Transaksi
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
+    null,
   );
   const [usePoints, setUsePoints] = useState(false);
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
@@ -220,7 +226,7 @@ export default function PosPage() {
     return products.filter(
       (p) =>
         p.name.toLowerCase().includes(lower) ||
-        p.productCode.toLowerCase().includes(lower)
+        p.productCode.toLowerCase().includes(lower),
     );
   }, [products, productSearchTerm]);
 
@@ -233,7 +239,7 @@ export default function PosPage() {
       }
       if (exist)
         return prev.map((i) =>
-          i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
+          i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i,
         );
       return [...prev, { ...product, quantity: 1 }];
     });
@@ -259,9 +265,9 @@ export default function PosPage() {
     () =>
       cart.reduce(
         (acc, item) => acc + Number(item.sellingPrice) * item.quantity,
-        0
+        0,
       ),
-    [cart]
+    [cart],
   );
 
   const voucherDiscount = appliedVoucher?.discount || 0;
@@ -270,7 +276,7 @@ export default function PosPage() {
 
   // 1. Hitung poin yang AKAN didapat dari transaksi ini (setelah voucher)
   const potentialPoints = Math.floor(safeTotalAfterVoucher / 30000);
-  
+
   // 2. Hitung total poin virtual (Poin Lama + Poin Baru)
   const totalVirtualPoints = (selectedCustomer?.points || 0) + potentialPoints;
 
@@ -306,7 +312,7 @@ export default function PosPage() {
           discount: res.data.discountAmount,
         });
         toast.success(
-          `Hemat Rp ${res.data.discountAmount.toLocaleString("id-ID")}`
+          `Hemat Rp ${res.data.discountAmount.toLocaleString("id-ID")}`,
         );
       }
     } catch (e: any) {
@@ -353,8 +359,8 @@ export default function PosPage() {
         diff < 0
           ? `KURANG Rp ${Math.abs(diff)}`
           : diff > 0
-          ? `LEBIH Rp ${diff}`
-          : "PAS";
+            ? `LEBIH Rp ${diff}`
+            : "PAS";
       toast.success(`Shift Ditutup. Selisih: ${msg}`);
       router.push("/login");
     } catch {
@@ -377,8 +383,8 @@ export default function PosPage() {
       .map(
         (i, idx) =>
           `${idx + 1}. ${i.name} ${i.quantity}x Rp ${Number(
-            i.sellingPrice
-          ).toLocaleString("id-ID")}`
+            i.sellingPrice,
+          ).toLocaleString("id-ID")}`,
       )
       .join("\n");
 
@@ -394,50 +400,93 @@ export default function PosPage() {
       : "https://web.whatsapp.com/send";
 
     const msg = `*My Perfume*\nTotal: Rp ${cartTotal.toLocaleString(
-      "id-ID"
+      "id-ID",
     )}\nTunai: Rp ${receiptData.cashPaid.toLocaleString(
-      "id-ID"
+      "id-ID",
     )}\nKembalian: Rp ${receiptData.change.toLocaleString(
-      "id-ID"
+      "id-ID",
     )}\n\n${itemsList}\n\nSisa Poin: ${finalPoints}\nTerima kasih!`;
 
     // window.open(`${baseUrl}?phone=${phone}&text=${encodeURIComponent(msg)}`, "_blank");
   };
 
-  const handleCheckout = async (cashPaid: number, change: number) => {
-    setIsSubmitting(true);
-    try {
-      await axios.post(API_URL_TRANSACTIONS, {
-        items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
-        customerId: selectedCustomer?.id || null,
-        usePoints,
-        userId: currentUser?.id,
-        paymentMethodId: selectedMethodId,
-        voucherId: appliedVoucher?.id || null,
+ const handleCheckout = async (cashPaid: number, change: number) => {
+  setIsSubmitting(true);
+  try {
+    const response = await axios.post(API_URL_TRANSACTIONS, {
+      items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
+      customerId: selectedCustomer?.id || null,
+      usePoints,
+      userId: currentUser?.id,
+      paymentMethodId: selectedMethodId,
+      voucherId: appliedVoucher?.id || null,
+    });
+
+    if (response.data.snapToken) {
+      // 1. TUTUP MODAL PEMBAYARAN SEKARANG (Sebelum Snap Muncul)
+      setIsPaymentModalOpen(false); 
+      
+      // 2. Bersihkan input cash agar tidak nyangkut jika nanti buka modal lagi
+      setCashPaid(""); 
+
+      // 3. Jalankan Midtrans
+      window.snap.pay(response.data.snapToken, {
+        onSuccess: function (result: any) {
+          toast.success("Pembayaran Berhasil!");
+          finishTransaction(cashPaid, change, true); 
+        },
+        onPending: function (result: any) {
+          toast.info("Pesanan disimpan sebagai 'Pending'.");
+          finishTransaction(cashPaid, change, false); 
+        },
+        onError: function (result: any) {
+          toast.error("Pembayaran Gagal!");
+          // Opsi: Kamu bisa buka kembali modal jika gagal, 
+          // tapi biasanya lebih baik balik ke keranjang.
+        },
+        onClose: function () {
+          toast.warning("Pop-up ditutup.");
+        },
       });
-
+    } else {
+      // JIKA CASH
       toast.success("Transaksi Berhasil");
-      openWhatsApp({ cashPaid, change });
-
-      setCart([]);
-      localStorage.removeItem("myPerfumeCart");
-      setSelectedCustomer(null);
-      setUsePoints(false);
-      setAppliedVoucher(null);
-      setVoucherCode("");
-      setIsSheetOpen(false);
-      setIsPaymentModalOpen(false);
-      setCashPaid("");
-      fetchProducts();
-    } catch (e: any) {
-      toast.error(e.response?.data?.error || "Gagal Transaksi");
-    } finally {
-      setIsSubmitting(false);
+      setIsPaymentModalOpen(false); // Tutup modal untuk cash juga
+      finishTransaction(cashPaid, change, true);
     }
+
+  } catch (e: any) {
+    toast.error(e.response?.data?.error || "Gagal Transaksi");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+  /**
+   * Fungsi pembantu (Helper) untuk membersihkan state setelah transaksi selesai
+   * agar kode tidak berulang-ulang (DRY - Don't Repeat Yourself)
+   */
+  const finishTransaction = (
+    cashPaid: number,
+    change: number,
+    sendWA: boolean,
+  ) => {
+    if (sendWA) {
+      openWhatsApp({ cashPaid, change });
+    }
+
+    // Reset semua state POS
+    setCart([]);
+    localStorage.removeItem("myPerfumeCart");
+    setSelectedCustomer(null);
+    setUsePoints(false);
+    setAppliedVoucher(null);
+    setVoucherCode("");
+    setIsSheetOpen(false);
+    setIsPaymentModalOpen(false);
+    setCashPaid("");
+    fetchProducts(); // Refresh stok di layar
   };
-
-
-
 
   return (
     <div className="h-full w-full">
@@ -489,6 +538,7 @@ export default function PosPage() {
               isCheckingVoucher={isCheckingVoucher}
               // --- PROP BARU: Buka Modal Pelanggan ---
               onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
+              onHandleCheckout={handleCheckout} // Kirim handler checkout ke CartView untuk tombol bayar di desktop
             />
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -541,6 +591,7 @@ export default function PosPage() {
               isCheckingVoucher={isCheckingVoucher}
               // --- PROP BARU ---
               onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
+              onHandleCheckout={handleCheckout} // Kirim handler checkout ke CartView untuk tombol bayar di mobile
             />
           </SheetContent>
         </Sheet>
