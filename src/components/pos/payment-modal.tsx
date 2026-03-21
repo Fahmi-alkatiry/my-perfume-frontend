@@ -61,9 +61,9 @@ export function PaymentModal({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center" onClick={() => {}}>
               <Label className="text-lg font-medium">Total Belanja</Label>
-              <span className="text-2xl font-bold">
+              <span onClick={() => onCashPaidChange(totalAmount.toString())} className="text-2xl font-bold cursor-pointer hover:text-blue-600">
                 Rp {totalAmount.toLocaleString("id-ID")}
               </span>
             </div>

@@ -11,7 +11,13 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,7 +34,7 @@ import { ShoppingCart, Loader2, LogOut } from "lucide-react";
 import { ProductListView } from "@/components/pos/product-list-view";
 import { CartView } from "@/components/pos/cart-view";
 import { PaymentModal } from "@/components/pos/payment-modal";
-
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 // --- Tipe Data ---
 export interface Product {
   id: number;
@@ -77,7 +83,7 @@ export default function PosPage() {
   // Transaksi
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
+    null,
   );
   const [usePoints, setUsePoints] = useState(false);
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
@@ -220,7 +226,7 @@ export default function PosPage() {
     return products.filter(
       (p) =>
         p.name.toLowerCase().includes(lower) ||
-        p.productCode.toLowerCase().includes(lower)
+        p.productCode.toLowerCase().includes(lower),
     );
   }, [products, productSearchTerm]);
 
@@ -233,7 +239,7 @@ export default function PosPage() {
       }
       if (exist)
         return prev.map((i) =>
-          i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
+          i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i,
         );
       return [...prev, { ...product, quantity: 1 }];
     });
@@ -259,9 +265,9 @@ export default function PosPage() {
     () =>
       cart.reduce(
         (acc, item) => acc + Number(item.sellingPrice) * item.quantity,
-        0
+        0,
       ),
-    [cart]
+    [cart],
   );
 
   const voucherDiscount = appliedVoucher?.discount || 0;
@@ -270,7 +276,7 @@ export default function PosPage() {
 
   // 1. Hitung poin yang AKAN didapat dari transaksi ini (setelah voucher)
   const potentialPoints = Math.floor(safeTotalAfterVoucher / 30000);
-  
+
   // 2. Hitung total poin virtual (Poin Lama + Poin Baru)
   const totalVirtualPoints = (selectedCustomer?.points || 0) + potentialPoints;
 
@@ -306,7 +312,7 @@ export default function PosPage() {
           discount: res.data.discountAmount,
         });
         toast.success(
-          `Hemat Rp ${res.data.discountAmount.toLocaleString("id-ID")}`
+          `Hemat Rp ${res.data.discountAmount.toLocaleString("id-ID")}`,
         );
       }
     } catch (e: any) {
@@ -353,8 +359,8 @@ export default function PosPage() {
         diff < 0
           ? `KURANG Rp ${Math.abs(diff)}`
           : diff > 0
-          ? `LEBIH Rp ${diff}`
-          : "PAS";
+            ? `LEBIH Rp ${diff}`
+            : "PAS";
       toast.success(`Shift Ditutup. Selisih: ${msg}`);
       router.push("/login");
     } catch {
@@ -377,8 +383,8 @@ export default function PosPage() {
       .map(
         (i, idx) =>
           `${idx + 1}. ${i.name} ${i.quantity}x Rp ${Number(
-            i.sellingPrice
-          ).toLocaleString("id-ID")}`
+            i.sellingPrice,
+          ).toLocaleString("id-ID")}`,
       )
       .join("\n");
 
@@ -394,11 +400,11 @@ export default function PosPage() {
       : "https://web.whatsapp.com/send";
 
     const msg = `*My Perfume*\nTotal: Rp ${cartTotal.toLocaleString(
-      "id-ID"
+      "id-ID",
     )}\nTunai: Rp ${receiptData.cashPaid.toLocaleString(
-      "id-ID"
+      "id-ID",
     )}\nKembalian: Rp ${receiptData.change.toLocaleString(
-      "id-ID"
+      "id-ID",
     )}\n\n${itemsList}\n\nSisa Poin: ${finalPoints}\nTerima kasih!`;
 
     // window.open(`${baseUrl}?phone=${phone}&text=${encodeURIComponent(msg)}`, "_blank");
@@ -435,9 +441,6 @@ export default function PosPage() {
       setIsSubmitting(false);
     }
   };
-
-
-
 
   return (
     <div className="h-full w-full">
@@ -515,6 +518,10 @@ export default function PosPage() {
             </Button>
           </SheetTrigger>
           <SheetContent className="flex flex-col p-0 h-full min-h-0">
+            <VisuallyHidden>
+              <SheetTitle>Keranjang</SheetTitle>
+            </VisuallyHidden>
+
             <CartView
               cart={cart}
               selectedCustomer={selectedCustomer}

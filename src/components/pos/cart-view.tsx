@@ -133,7 +133,7 @@ export function CartView({
       {/* Pelanggan */}
       <div className="px-1 border-b shrink-0">
         <div className="mb-0">
-          <Label className="mb-2 block">Pelanggan</Label>
+          {/* <Label className="mb-2 block">Pelanggan</Label> */}
 
           {/* --- 3. UBAH BAGIAN INI --- */}
           <div className="flex gap-1 items-start">

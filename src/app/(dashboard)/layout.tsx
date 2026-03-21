@@ -6,7 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Menu,
   LayoutDashboard,
@@ -26,6 +32,7 @@ import {
   Ticket,
   Megaphone,
   Bot,
+  Bell,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -75,12 +82,12 @@ const navLinks = [
     icon: BrainCircuit,
     adminOnly: true,
   },
-  {
-    href: "/reports/shifts",
-    label: "Laporan Shift",
-    icon: Clock,
-    adminOnly: true, // Hanya admin yang perlu lihat ini
-  },
+  // {
+  //   href: "/reports/shifts",
+  //   label: "Laporan Shift",
+  //   icon: Clock,
+  //   adminOnly: true, // Hanya admin yang perlu lihat ini
+  // },
   {
     href: "/vouchers",
     label: "Voucher",
@@ -118,11 +125,24 @@ const navLinks = [
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
   },
   {
-  href: "/ai-assistant",
-  label: "Asisten AI",
-  icon: Bot,
-  adminOnly: true, // Pastikan hanya admin
-},
+    href: "/ai-assistant",
+    label: "Asisten AI",
+    icon: Bot,
+    adminOnly: true, // Pastikan hanya admin
+  },
+  {
+    href: "/customers/lapsed",
+    label: "Pengingat Pelanggan",
+    icon: Bell,
+    adminOnly: true, // Hanya Admin!
+  },
+  {
+    href: "/reports/advanced",
+    label: "Analisis Mendalam",
+    icon: BrainCircuit,
+    adminOnly: true, // Hanya Admin yang boleh akses laporan mendalam
+    // Hanya Admin yang boleh akses pengaturan
+  }
 ];
 // --- Komponen NavLinkItems (Di luar render) ---
 function NavLinkItems({
@@ -197,7 +217,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         // Cek apakah halaman yang sedang dibuka adalah halaman khusus Admin
         // Kita cek apakah pathname saat ini cocok dengan salah satu link yang adminOnly: true
         const currentRouteConfig = navLinks.find(
-          (link) => link.href === pathname
+          (link) => link.href === pathname,
         );
 
         // Jika user KASIR mencoba akses halaman ADMIN
@@ -242,7 +262,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <div className="flex h-full max-h-screen flex-col">
           <div className="flex h-14 items-center border-b px-4">
             <Link
-              href={currentUser?.role === "ADMIN" ? "/dashboard" : "/pos"}
+              href={currentUser?.role === "ADMIN" ? "/pos" : "/pos"}
               className="flex items-center gap-2 font-semibold"
             >
               <Store className="h-6 w-6 text-primary" />
@@ -296,14 +316,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col">
-              <nav className="grid gap-2 text-lg font-medium">
+            <SheetContent side="left" className="flex flex-col h-full">
+          
+              <nav className="flex-1 overflow-y-auto grid gap-2 text-lg font-medium pr-2">
                 <Link
-                  href={currentUser?.role === "ADMIN" ? "/dashboard" : "/pos"}
+                  href={currentUser?.role === "ADMIN" ? "/pos" : "/pos"}
                   className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                   <Store className="h-6 w-6 text-primary" />
-                  <span>My Perfume POS</span>
+                  <SheetHeader>
+                    <SheetTitle>My Perfume POS</SheetTitle>
+                  </SheetHeader>
                 </Link>
                 <NavLinkItems
                   pathname={pathname}
@@ -311,7 +334,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   links={filteredNavLinks}
                 />
               </nav>
-              <div className="mt-auto">
+              <div className="border-t ">
                 <Button
                   size="sm"
                   variant="outline"
@@ -347,9 +370,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* KONTEN */}
-        <main className="flex flex-1 flex-col overflow-auto">
-          {children}
-        </main>
+        <main className="flex flex-1 flex-col overflow-auto">{children}</main>
       </div>
     </div>
   );
