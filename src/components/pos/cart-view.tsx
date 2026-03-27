@@ -10,6 +10,7 @@ import {
   X,
   Ticket,
   UserPlus, // <-- 1. IMPOR IKON INI
+  Nfc,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -78,6 +79,8 @@ interface CartViewProps {
 
   // --- 2. TAMBAHKAN PROP BARU INI ---
   onOpenAddCustomer: () => void;
+  onStartNfcScan: () => void;
+  isNfcScanning: boolean;
 }
 
 export function CartView({
@@ -106,6 +109,8 @@ export function CartView({
   isCheckingVoucher,
   // Prop Baru
   onOpenAddCustomer, // <-- Destructure ini
+  onStartNfcScan,
+  isNfcScanning,
 }: CartViewProps) {
   // Hitung diskon voucher dalam angka (untuk keperluan hitung poin)
   const voucherDiscount = appliedVoucher ? appliedVoucher.discount : 0;
@@ -159,16 +164,27 @@ export function CartView({
               )}
             </div>
 
-            {/* Tombol Tambah Pelanggan Baru */}
+            {/* Tombol Tambah Pelanggan Baru & NFC */}
             {!selectedCustomer && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onOpenAddCustomer}
-                title="Pelanggan Baru"
-              >
-                <UserPlus className="h-5 w-5" />
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onStartNfcScan}
+                  title="Scan Kartu NFC (Klik lagi untuk batal)"
+                  className={isNfcScanning ? "animate-pulse border-blue-500 text-blue-500 bg-blue-50" : ""}
+                >
+                  <Nfc className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onOpenAddCustomer}
+                  title="Pelanggan Baru"
+                >
+                  <UserPlus className="h-5 w-5" />
+                </Button>
+              </div>
             )}
           </div>
           {/* --------------------------- */}

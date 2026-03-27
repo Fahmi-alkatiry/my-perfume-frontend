@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ShoppingCart, Loader2, LogOut } from "lucide-react";
+import { useNFC } from "@/hooks/useNFC";
 
 import { ProductListView } from "@/components/pos/product-list-view";
 import { CartView } from "@/components/pos/cart-view";
@@ -114,6 +115,26 @@ export default function PosPage() {
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   // ----------------------------------
+
+  // NFC
+  const { isScanning, scan, stopScan } = useNFC();
+
+  const handleStartNfcScan = () => {
+    if (isScanning) {
+      stopScan();
+      return;
+    }
+    scan(async (message) => {
+      try {
+        const res = await axios.get(`${API_URL_CUSTOMERS}/${message}`);
+        setSelectedCustomer(res.data);
+        toast.success(`Pelanggan ${res.data.name} terdeteksi dari NFC!`);
+      } catch (err: any) {
+        toast.error("Gagal mendeteksi pelanggan. ID tidak terdaftar.");
+      }
+      stopScan();
+    });
+  };
 
   // Cart (LocalStorage)
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -492,6 +513,8 @@ export default function PosPage() {
               isCheckingVoucher={isCheckingVoucher}
               // --- PROP BARU: Buka Modal Pelanggan ---
               onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
+              onStartNfcScan={handleStartNfcScan}
+              isNfcScanning={isScanning}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -548,6 +571,8 @@ export default function PosPage() {
               isCheckingVoucher={isCheckingVoucher}
               // --- PROP BARU ---
               onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
+              onStartNfcScan={handleStartNfcScan}
+              isNfcScanning={isScanning}
             />
           </SheetContent>
         </Sheet>

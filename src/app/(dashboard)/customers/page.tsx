@@ -14,7 +14,9 @@ import {
   ArrowDownLeft,
   ChevronLeft,
   ChevronRight, // Ikon Poin Keluar
+  Nfc,
 } from "lucide-react";
+import { useNFC } from "@/hooks/useNFC";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -127,6 +129,11 @@ export default function CustomersPage() {
   const [pointLogs, setPointLogs] = useState<PointLog[]>([]);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
 
+  // NFC State
+  const { isSupported, write } = useNFC();
+  const [isNfcDialogOpen, setIsNfcDialogOpen] = useState(false);
+  const [nfcCustomer, setNfcCustomer] = useState<Customer | null>(null);
+
   // CRUD State
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(
@@ -216,6 +223,22 @@ export default function CustomersPage() {
       console.error("Gagal load poin");
     } finally {
       setIsLoadingPoints(false);
+    }
+  };
+
+  // --- Handlers NFC ---
+  const handleOpenNfcDialog = (customer: Customer) => {
+    setNfcCustomer(customer);
+    setIsNfcDialogOpen(true);
+  };
+
+  const handleWriteNfc = async () => {
+    if (!nfcCustomer) return;
+    const success = await write(String(nfcCustomer.id));
+    if (success) {
+      toast.success("Berhasil menulis ID Pelanggan ke NFC!");
+      setIsNfcDialogOpen(false);
+      setNfcCustomer(null);
     }
   };
 
@@ -372,6 +395,14 @@ export default function CustomersPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => handleOpenNfcDialog(c)}
+                            title="Tautkan NFC"
+                          >
+                            <Nfc className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleOpenHistory(c)}
                             title="Riwayat"
                           >
@@ -420,6 +451,13 @@ export default function CustomersPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => handleOpenNfcDialog(c)}
+                  >
+                    <Nfc className="h-4 w-4 mr-2" /> NFC
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleOpenHistory(c)}
                   >
                     <History className="h-4 w-4 mr-2" /> Riwayat
@@ -453,6 +491,31 @@ export default function CustomersPage() {
   isLoading={isLoading}
   onPageChange={handlePageChange}
 />
+
+      {/* --- DIALOG NFC --- */}
+      <Dialog open={isNfcDialogOpen} onOpenChange={(open) => {
+        setIsNfcDialogOpen(open);
+        if (!open) setNfcCustomer(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tautkan NFC untuk {nfcCustomer?.name}</DialogTitle>
+            <DialogDescription>
+              {!isSupported ? (
+                "Perangkat/Browser ini tidak mendukung Web NFC. Gunakan Chrome di Android dengan koneksi HTTPS."
+              ) : (
+                "Klik tombol di bawah, lalu segera tempelkan kartu NFC ke bagian belakang smartphone Anda."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNfcDialogOpen(false)}>Batal</Button>
+            <Button onClick={handleWriteNfc} disabled={!isSupported}>
+              Mulai Tulis NFC
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* --- DIALOG FORM CREATE/EDIT --- */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
