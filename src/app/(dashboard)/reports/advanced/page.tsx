@@ -8,6 +8,7 @@ import {
   Calendar as CalendarIcon,
   Download,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   ShoppingBag,
   Loader2,
@@ -144,19 +145,31 @@ export default function AdvancedReportPage() {
 
       {data && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <SummaryCard
               title="Total Omzet"
               value={data.summary.totalRevenue}
               icon={<DollarSign className="text-green-500" />}
             />
             <SummaryCard
-              title="Total Profit"
-              value={data.summary.totalProfit}
+              title="Profit Kotor"
+              value={data.summary.totalGrossProfit ?? data.summary.totalProfit}
               icon={<TrendingUp className="text-blue-500" />}
             />
             <SummaryCard
-              title="Transaksi"
+              title="Pengeluaran"
+              value={data.summary.totalExpenses ?? 0}
+              icon={<TrendingDown className="text-red-500" />}
+            />
+            <SummaryCard
+              title="Laba Bersih"
+              value={data.summary.totalNetProfit ?? data.summary.totalProfit}
+              icon={<TrendingUp className="text-green-600" />}
+            />
+          </div>
+          <div className="grid grid-cols-1 mt-4">
+            <SummaryCard
+              title="Total Transaksi"
               value={`${data.summary.totalOrders} Order`}
               icon={<ShoppingBag className="text-orange-500" />}
             />
