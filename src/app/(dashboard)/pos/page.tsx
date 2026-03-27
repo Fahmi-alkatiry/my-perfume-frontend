@@ -588,6 +588,7 @@ export default function PosPage() {
                   onChange={(e) => setNewCustomerPhone(e.target.value)}
                   required
                   placeholder="08..."
+                  type="number"
                 />
               </div>
             </div>

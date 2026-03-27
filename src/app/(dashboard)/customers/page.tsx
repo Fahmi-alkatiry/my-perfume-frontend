@@ -477,6 +477,7 @@ export default function CustomersPage() {
                 value={formState.phoneNumber}
                 onChange={handleInputChange}
                 required
+                type="number"
               />
             </div>
             <div className="grid gap-2">

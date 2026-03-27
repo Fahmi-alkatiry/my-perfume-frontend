@@ -54,7 +54,14 @@ export default function ForecastPage() {
     const fetchData = async () => {
       try {
         const res = await axios.get("/reports/forecast");
-        setData(res.data);
+        
+        // Urutkan data: RESTOCK (atas) -> WARNING -> AMAN
+        const sortedData = res.data.sort((a: ForecastItem, b: ForecastItem) => {
+          const priority = { RESTOCK: 1, WARNING: 2, AMAN: 3 };
+          return (priority[a.status] || 99) - (priority[b.status] || 99);
+        });
+        
+        setData(sortedData);
       } catch (error) {
         toast.error("Gagal memuat data peramalan");
       } finally {
