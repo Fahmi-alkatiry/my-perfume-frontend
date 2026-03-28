@@ -126,7 +126,7 @@ export default function PosPage() {
     }
     scan(async (message) => {
       try {
-        const res = await axios.get(`${API_URL_CUSTOMERS}/${message}`);
+        const res = await axios.get(`${API_URL_CUSTOMERS}/nfc/${message}`);
         setSelectedCustomer(res.data);
         toast.success(`Pelanggan ${res.data.name} terdeteksi dari NFC!`);
       } catch (err: any) {

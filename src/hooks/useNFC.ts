@@ -40,17 +40,14 @@ export function useNFC() {
       // @ts-ignore
       ndef.onreading = (event) => {
         try {
-          const decoder = new TextDecoder();
-          for (const record of event.message.records) {
-            if (record.recordType === "text") {
-              // Only decode the raw bytes, avoid extra logic since Web NFC API natively supports passing string
-              const text = decoder.decode(record.data);
-              onRead(text);
-              return;
-            }
+          const cardUid = event.serialNumber;
+          if (cardUid) {
+            onRead(cardUid);
+          } else {
+            toast.error("Kartu NFC tidak memiliki Serial Number (UID).");
           }
         } catch (err) {
-          console.error("Error decoding NFC data", err);
+          console.error("Error reading NFC data", err);
         }
       };
       

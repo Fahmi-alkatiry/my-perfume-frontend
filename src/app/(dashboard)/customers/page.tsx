@@ -130,7 +130,7 @@ export default function CustomersPage() {
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
 
   // NFC State
-  const { isSupported, write } = useNFC();
+  const { isSupported, scan, stopScan, isScanning } = useNFC();
   const [isNfcDialogOpen, setIsNfcDialogOpen] = useState(false);
   const [nfcCustomer, setNfcCustomer] = useState<Customer | null>(null);
 
@@ -232,14 +232,20 @@ export default function CustomersPage() {
     setIsNfcDialogOpen(true);
   };
 
-  const handleWriteNfc = async () => {
+  const handleStartNfcLink = () => {
     if (!nfcCustomer) return;
-    const success = await write(String(nfcCustomer.id));
-    if (success) {
-      toast.success("Berhasil menulis ID Pelanggan ke NFC!");
-      setIsNfcDialogOpen(false);
-      setNfcCustomer(null);
-    }
+    scan(async (cardUid) => {
+      stopScan();
+      try {
+        await axios.put(`${API_URL}/${nfcCustomer.id}`, { nfcCardId: cardUid });
+        toast.success(`Berhasil menautkan Kartu NFC ke ${nfcCustomer.name}!`);
+        setIsNfcDialogOpen(false);
+        setNfcCustomer(null);
+        fetchCustomers();
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || "Gagal menautkan kartu.");
+      }
+    });
   };
 
   // ... (Handler CRUD Lainnya: Create, Edit, Delete sama seperti sebelumnya) ...
@@ -509,9 +515,9 @@ export default function CustomersPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNfcDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleWriteNfc} disabled={!isSupported}>
-              Mulai Tulis NFC
+            <Button variant="outline" onClick={() => { stopScan(); setIsNfcDialogOpen(false); }}>Batal</Button>
+            <Button onClick={handleStartNfcLink} disabled={!isSupported || isScanning}>
+              {isScanning ? "Membaca..." : "Mulai Tautkan NFC"}
             </Button>
           </DialogFooter>
         </DialogContent>
