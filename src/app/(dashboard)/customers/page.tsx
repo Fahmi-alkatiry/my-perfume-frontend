@@ -76,6 +76,7 @@ interface Customer {
   points: number;
   rfmSegment?: string;
   lastAnalysisDate?: string;
+  nfcCardId?: string | null;
 }
 
 // Tipe Riwayat Belanja
@@ -246,6 +247,19 @@ export default function CustomersPage() {
         toast.error(error.response?.data?.error || "Gagal menautkan kartu.");
       }
     });
+  };
+
+  const handleUnlinkNfc = async () => {
+    if (!nfcCustomer) return;
+    try {
+      await axios.put(`${API_URL}/${nfcCustomer.id}`, { nfcCardId: null });
+      toast.success(`Tautan kartu NFC dihapus dari pelanggan ${nfcCustomer.name}!`);
+      setIsNfcDialogOpen(false);
+      setNfcCustomer(null);
+      fetchCustomers();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Gagal menghapus tautan kartu.");
+    }
   };
 
   // ... (Handler CRUD Lainnya: Create, Edit, Delete sama seperti sebelumnya) ...
@@ -515,6 +529,11 @@ export default function CustomersPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
+            {nfcCustomer?.nfcCardId && (
+              <Button variant="destructive" onClick={handleUnlinkNfc}>
+                Putuskan Kartu
+              </Button>
+            )}
             <Button variant="outline" onClick={() => { stopScan(); setIsNfcDialogOpen(false); }}>Batal</Button>
             <Button onClick={handleStartNfcLink} disabled={!isSupported || isScanning}>
               {isScanning ? "Membaca..." : "Mulai Tautkan NFC"}
