@@ -23,7 +23,7 @@ export function PaginationBar({
   return (
     <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-3">
       <span className="text-sm text-muted-foreground">
-        Total {paginationInfo.totalCount} produk
+        Total {paginationInfo.totalCount} data
       </span>
 
       <div className="flex items-center gap-2">

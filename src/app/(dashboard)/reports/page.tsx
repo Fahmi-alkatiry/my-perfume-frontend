@@ -85,7 +85,7 @@ interface Transaction {
   createdAt: string;
   finalAmount: number;
   totalMargin: number;
-  status: "COMPLETED" | "CANCELLED";
+  status: "COMPLETED" | "PENDING" | "CANCELLED";
   customer: { name: string; phoneNumber: string | null } | null;
   user: { name: string } | null;
   paymentMethod: { name: string } | null;
@@ -475,10 +475,23 @@ IG: @Myperfumeee_`;
                     <TableCell>
                       <Badge
                         variant={
-                          tx.status === "COMPLETED" ? "default" : "destructive"
+                          tx.status === "COMPLETED"
+                            ? "default"
+                            : tx.status === "PENDING"
+                            ? "outline"
+                            : "destructive"
+                        }
+                        className={
+                          tx.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100"
+                            : ""
                         }
                       >
-                        {tx.status === "COMPLETED" ? "Sukses" : "Batal"}
+                        {tx.status === "COMPLETED"
+                          ? "Sukses"
+                          : tx.status === "PENDING"
+                          ? "Menunggu"
+                          : "Batal"}
                       </Badge>
                     </TableCell>
 
@@ -486,8 +499,8 @@ IG: @Myperfumeee_`;
                     <TableCell>
                       {tx.customer ? (
                         tx.customer.name
-                      ) : // Jika belum ada pelanggan & status sukses, tampilkan tombol tambah
-                      tx.status === "COMPLETED" ? (
+                      ) : // Jika belum ada pelanggan & status sukses/pending, tampilkan tombol tambah
+                      tx.status !== "CANCELLED" ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -530,7 +543,7 @@ IG: @Myperfumeee_`;
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {tx.status === "COMPLETED" && (
+                        {tx.status !== "CANCELLED" && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -568,10 +581,23 @@ IG: @Myperfumeee_`;
                     </div>
                     <Badge
                       variant={
-                        tx.status === "COMPLETED" ? "default" : "destructive"
+                        tx.status === "COMPLETED"
+                          ? "default"
+                          : tx.status === "PENDING"
+                          ? "outline"
+                          : "destructive"
+                      }
+                      className={
+                        tx.status === "PENDING"
+                          ? "bg-yellow-100 text-yellow-700 border-yellow-200"
+                          : ""
                       }
                     >
-                      {tx.status}
+                      {tx.status === "COMPLETED"
+                        ? "Sukses"
+                        : tx.status === "PENDING"
+                        ? "Menunggu"
+                        : "Batal"}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -585,7 +611,7 @@ IG: @Myperfumeee_`;
                     <span>
                       {tx.customer ? (
                         tx.customer.name
-                      ) : tx.status === "COMPLETED" ? (
+                      ) : tx.status !== "CANCELLED" ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -618,7 +644,7 @@ IG: @Myperfumeee_`;
                     >
                       Detail
                     </Button>
-                    {tx.status === "COMPLETED" && (
+                    {tx.status !== "CANCELLED" && (
                       <Button
                         variant="outline"
                         size="sm"

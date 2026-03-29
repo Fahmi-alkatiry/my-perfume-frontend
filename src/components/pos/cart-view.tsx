@@ -9,7 +9,8 @@ import {
   Loader2,
   X,
   Ticket,
-  UserPlus, // <-- 1. IMPOR IKON INI
+  UserPlus,
+  Nfc,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -34,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { CustomerCombobox, Customer } from "./customer-combobox";
 
-// ... (Interface Product, CartItem, PaymentMethod TETAP SAMA)
+// --- Tipe Data ---
 interface Product {
   id: number;
   name: string;
@@ -50,7 +51,6 @@ interface PaymentMethod {
 }
 
 interface CartViewProps {
-  // ... props lama tetap sama ...
   cart: CartItem[];
   selectedCustomer: Customer | null;
   onSelectCustomer: (customer: Customer | null) => void;
@@ -76,8 +76,16 @@ interface CartViewProps {
   appliedVoucher: { code: string; discount: number } | null;
   isCheckingVoucher: boolean;
 
-  // --- 2. TAMBAHKAN PROP BARU INI ---
+  // Props Baru
   onOpenAddCustomer: () => void;
+  onStartNfcScan: () => void;
+  isNfcScanning: boolean;
+  
+  // Penambahan Handler Checkout Langsung (Optional if using PaymentModal)
+  // Tapi biasanya tombol bayar memanggil onOpenPaymentModal
+  // Namun di beberapa versi Anda mengirim handleCheckout ke sini.
+  // Saya akan sertakan agar aman.
+  onHandleCheckout?: (cashPaid: number, change: number) => void;
 }
 
 export function CartView({
@@ -104,18 +112,19 @@ export function CartView({
   onRemoveVoucher,
   appliedVoucher,
   isCheckingVoucher,
-  // Prop Baru
-  onOpenAddCustomer, // <-- Destructure ini
-  onHandleCheckout, // <-- Destructure handler checkout baru
+  // Props Baru
+  onOpenAddCustomer,
+  onStartNfcScan,
+  isNfcScanning,
+  onHandleCheckout,
 }: CartViewProps) {
-  // Hitung diskon voucher dalam angka (untuk keperluan hitung poin)
+  
   const voucherDiscount = appliedVoucher ? appliedVoucher.discount : 0;
-
-  // Poin dihitung dari (Subtotal - Diskon Voucher) sesuai logika Backend
-  const potentialPoints = Math.floor((subtotal - voucherDiscount) / 30000);
-
-  // Total Poin Virtual = Saldo Sekarang + Poin yang akan didapat
+  const totalAfterVoucher = subtotal - voucherDiscount;
+  const safeTotalAfterVoucher = totalAfterVoucher > 0 ? totalAfterVoucher : 0;
+  const potentialPoints = Math.floor(safeTotalAfterVoucher / 30000);
   const totalVirtualPoints = (selectedCustomer?.points || 0) + potentialPoints;
+
   return (
     <div className="flex flex-1 flex-col min-h-0">
       {/* Header */}
@@ -132,53 +141,45 @@ export function CartView({
       </div>
 
       {/* Pelanggan */}
-      <div className="px-1 border-b shrink-0">
-        <div className="mb-0">
-          <Label className="mb-2 block">Pelanggan</Label>
-
-          {/* --- 3. UBAH BAGIAN INI --- */}
-          <div className="flex gap-1 items-start">
-            <div className="flex-1">
-              {selectedCustomer ? (
-                <div className="flex items-center justify-between rounded-md border p-2 bg-white">
-                  <div className="space-y-1">
-                    <p className="font-medium">{selectedCustomer.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Poin: {selectedCustomer.points}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onSelectCustomer(null)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+      <div className="px-2 py-3 border-b shrink-0 bg-white">
+        <div className="flex gap-1 items-start">
+          <div className="flex-1">
+            {selectedCustomer ? (
+              <div className="flex items-center justify-between rounded-md border p-2 bg-slate-50">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-sm">{selectedCustomer.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Poin: {selectedCustomer.points} (+{potentialPoints})
+                  </p>
                 </div>
-              ) : (
-                <CustomerCombobox onSelectCustomer={onSelectCustomer} />
-              )}
-            </div>
-
-            {/* Tombol Tambah Pelanggan Baru */}
-            {!selectedCustomer && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onSelectCustomer(null)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <CustomerCombobox onSelectCustomer={onSelectCustomer} />
+            )}
+          </div>
+          {!selectedCustomer && (
+            <div className="flex gap-1">
               <Button
                 variant="outline"
                 size="icon"
-                onClick={onOpenAddCustomer}
-                title="Pelanggan Baru"
+                onClick={onStartNfcScan}
+                className={isNfcScanning ? "animate-pulse border-blue-500 text-blue-500 bg-blue-50" : ""}
+                title="Scan NFC"
               >
+                <Nfc className="h-5 w-5" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={onOpenAddCustomer} title="Tambah Pelanggan">
                 <UserPlus className="h-5 w-5" />
               </Button>
-            )}
-          </div>
-          {/* --------------------------- */}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ... (SISA KODE KE BAWAH TETAP SAMA: ScrollArea, Footer, dll) ... */}
       <ScrollArea className="flex-1 min-h-0 px-2">
-        {/* ... Tabel ... */}
         <Table>
           <TableHeader>
             <TableRow>
@@ -191,10 +192,7 @@ export function CartView({
           <TableBody>
             {cart.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="text-center h-24 text-muted-foreground"
-                >
+                <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
                   Keranjang kosong
                 </TableCell>
               </TableRow>
@@ -210,42 +208,20 @@ export function CartView({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          onUpdateQuantity(item.id, item.quantity - 1)
-                        }
-                      >
+                      <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="w-6 text-center">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          onUpdateQuantity(item.id, item.quantity + 1)
-                        }
-                      >
+                      <span className="w-6 text-center text-sm">{item.quantity}</span>
+                      <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    Rp{" "}
-                    {(Number(item.sellingPrice) * item.quantity).toLocaleString(
-                      "id-ID",
-                    )}
+                  <TableCell className="text-right text-sm">
+                    Rp {(Number(item.sellingPrice) * item.quantity).toLocaleString("id-ID")}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-red-500"
-                      onClick={() => onRemoveFromCart(item.id)}
-                    >
+                    <Button variant="ghost" size="icon" className="text-red-500 h-8 w-8" onClick={() => onRemoveFromCart(item.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -256,114 +232,90 @@ export function CartView({
         </Table>
       </ScrollArea>
 
-      <div className="p-2 border-t shrink-0 bg-white space-y-2">
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Subtotal</span>
-          <span>Rp {subtotal.toLocaleString("id-ID")}</span>
-        </div>
-
-        {/* Input Voucher */}
-        <div className="flex gap-1">
-          <div className="relative flex-1">
-            <Ticket className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Kode Voucher"
-              className="pl-8"
-              value={voucherCode}
-              onChange={(e) =>
-                onVoucherCodeChange(e.target.value.toUpperCase())
-              }
-              disabled={!!appliedVoucher}
-            />
+      <div className="p-3 border-t shrink-0 bg-gray-50 space-y-3">
+        {/* Ringkasan */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>Subtotal</span>
+            <span>Rp {subtotal.toLocaleString("id-ID")}</span>
           </div>
-          {appliedVoucher ? (
-            <Button
-              variant="destructive"
-              size="icon"
-              onClick={onRemoveVoucher}
-              title="Hapus Voucher"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              variant="secondary"
-              onClick={onCheckVoucher}
-              disabled={isCheckingVoucher || !voucherCode}
-            >
-              {isCheckingVoucher ? <Loader2 className="animate-spin" /> : "Cek"}
-            </Button>
+          
+          <div className="flex gap-1">
+            <div className="relative flex-1">
+              <Ticket className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Kode Voucher"
+                className="pl-8 h-9 text-sm"
+                value={voucherCode}
+                onChange={(e) => onVoucherCodeChange(e.target.value.toUpperCase())}
+                disabled={!!appliedVoucher}
+              />
+            </div>
+            {appliedVoucher ? (
+              <Button variant="destructive" size="icon" className="h-9 w-9" onClick={onRemoveVoucher}>
+                <X className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button variant="secondary" className="h-9 px-3" onClick={onCheckVoucher} disabled={isCheckingVoucher || !voucherCode}>
+                {isCheckingVoucher ? <Loader2 className="animate-spin h-4 w-4" /> : "Cek"}
+              </Button>
+            )}
+          </div>
+
+          {appliedVoucher && (
+            <div className="flex justify-between text-green-600 font-medium text-xs bg-green-50 p-2 rounded border border-green-200">
+              <span>Voucher ({appliedVoucher.code})</span>
+              <span>- Rp {appliedVoucher.discount.toLocaleString("id-ID")}</span>
+            </div>
+          )}
+
+          {selectedCustomer && totalVirtualPoints >= 10 && (
+            <div className="flex items-center justify-between p-2 mt-2 bg-blue-50 rounded-md border border-blue-100 italic">
+              <Label htmlFor="pts-switch" className="flex flex-col cursor-pointer">
+                <span className="font-bold text-blue-700 text-xs text-sm">Tukar 10 Poin ✨ (-Rp 30rb)</span>
+                <span className="text-[10px] text-blue-600">Virtual Poin: {totalVirtualPoints}</span>
+              </Label>
+              <Switch id="pts-switch" checked={usePoints} onCheckedChange={onUsePointsChange} />
+            </div>
+          )}
+          
+          {discountAmount > 0 && !appliedVoucher && (
+             <div className="flex justify-between text-green-600 font-medium text-xs">
+              <span>Diskon Poin</span>
+              <span>- Rp {discountAmount.toLocaleString("id-ID")}</span>
+            </div>
           )}
         </div>
-        {appliedVoucher && (
-          <div className="flex justify-between text-green-600 font-medium text-sm bg-green-50 p-2 rounded border border-green-200">
-            <span>Voucher ({appliedVoucher.code})</span>
-            <span>- Rp {appliedVoucher.discount.toLocaleString("id-ID")}</span>
-          </div>
-        )}
-
-        {/* Diskon Poin */}
-        {selectedCustomer && totalVirtualPoints >= 10 && (
-          <div className="flex items-center justify-between p-2 bg-blue-50 rounded-md border border-blue-100">
-            <Label htmlFor="pts" className="flex flex-col">
-              <span className="font-semibold text-blue-700">
-                Tukar 10 Poin ✨
-              </span>
-              <span className="text-xs font-normal text-blue-600">
-                (Saldo: {selectedCustomer.points} + Baru: {potentialPoints})
-              </span>
-            </Label>
-            <Switch
-              id="pts"
-              checked={usePoints}
-              onCheckedChange={onUsePointsChange}
-            />
-          </div>
-        )}
-        {discountAmount > 0 && (
-          <div className="flex justify-between text-green-600 font-medium text-sm">
-            <span>Diskon Poin</span>
-            <span>- Rp {discountAmount.toLocaleString("id-ID")}</span>
-          </div>
-        )}
 
         <Separator />
 
-        {/* Total Akhir */}
-        <div className="flex justify-between text-xl font-bold">
-          <span>Total</span>
-          <span>Rp {cartTotal.toLocaleString("id-ID")}</span>
+        <div className="flex justify-between items-center">
+           <span className="font-medium">Total Akhir</span>
+           <span className="text-2xl font-black text-primary">Rp {cartTotal.toLocaleString("id-ID")}</span>
         </div>
 
-        {/* Metode Bayar & Tombol */}
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">
-            Metode Pembayaran
-          </Label>
-          <Select
-            value={selectedMethodId?.toString() || ""}
-            onValueChange={(v) => onSelectMethod(Number(v))}
+        <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase text-muted-foreground font-bold">Metode Pembayaran</Label>
+            <Select value={selectedMethodId?.toString() || ""} onValueChange={(v) => onSelectMethod(Number(v))}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Pilih..." />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((m) => (
+                  <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            className="h-12 px-8 text-lg font-bold shadow-lg"
+            onClick={onOpenPaymentModal}
+            disabled={isSubmitting || cart.length === 0 || !selectedMethodId}
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Pilih..." />
-            </SelectTrigger>
-            <SelectContent>
-              {paymentMethods.map((m) => (
-                <SelectItem key={m.id} value={m.id.toString()}>
-                  {m.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {isSubmitting ? <Loader2 className="animate-spin" /> : "BAYAR"}
+          </Button>
         </div>
-        <Button
-          size="lg"
-          className="w-full text-lg"
-          onClick={onHandleCheckout}
-          disabled={isSubmitting || cart.length === 0 || !selectedMethodId}
-        >
-          Bayar
-        </Button>
       </div>
     </div>
   );

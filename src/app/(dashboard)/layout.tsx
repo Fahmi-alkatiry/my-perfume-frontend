@@ -6,7 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Menu,
   LayoutDashboard,
@@ -26,6 +32,7 @@ import {
   Ticket,
   Megaphone,
   Bot,
+  Bell,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -77,12 +84,6 @@ const navLinks = [
     adminOnly: true,
   },
   {
-    href: "/reports/shifts",
-    label: "Laporan Shift",
-    icon: Clock,
-    adminOnly: true, // Hanya admin yang perlu lihat ini
-  },
-  {
     href: "/vouchers",
     label: "Voucher",
     icon: Ticket,
@@ -124,7 +125,20 @@ const navLinks = [
     icon: Bot,
     adminOnly: true, // Pastikan hanya admin
   },
+  {
+    href: "/customers/lapsed",
+    label: "Pengingat Pelanggan",
+    icon: Bell,
+    adminOnly: true, // Hanya Admin!
+  },
+  {
+    href: "/reports/advanced",
+    label: "Analisis Mendalam",
+    icon: BrainCircuit,
+    adminOnly: true,
+  }
 ];
+
 // --- Komponen NavLinkItems (Di luar render) ---
 function NavLinkItems({
   pathname,
@@ -169,8 +183,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [filteredNavLinks, setFilteredNavLinks] = useState<typeof navLinks>([]);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true); // Loading state agar tidak flashing
 
-  // --- FUNGSI DIALOG (UBAH NAMA STATE) ---
-
   const handleLogout = () => {
     Cookies.remove("token");
     localStorage.clear();
@@ -195,13 +207,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         }
 
         // 2. MIDDLEWARE LOGIC (Redirect Paksa)
-        // Cek apakah halaman yang sedang dibuka adalah halaman khusus Admin
-        // Kita cek apakah pathname saat ini cocok dengan salah satu link yang adminOnly: true
         const currentRouteConfig = navLinks.find(
           (link) => link.href === pathname,
         );
 
-        // Jika user KASIR mencoba akses halaman ADMIN
         if (user.role !== "ADMIN" && currentRouteConfig?.adminOnly) {
           toast.error("Akses Ditolak", {
             description: "Halaman ini khusus untuk Admin.",
@@ -209,22 +218,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           router.replace("/pos"); // Lempar paksa ke halaman Kasir
         }
 
-        // Tambahan: Jika Kasir mencoba akses root dashboard, lempar ke POS
         if (user.role !== "ADMIN" && pathname === "/dashboard") {
           router.replace("/pos");
         }
       } catch (error) {
         console.error("Gagal memuat user", error);
-        // Jika token tidak valid/session habis, middleware.ts akan menangani redirect ke login
       } finally {
         setIsCheckingAuth(false);
       }
     };
 
     checkAuthAndRole();
-  }, [pathname, router]); // Jalankan setiap kali URL berubah
+  }, [pathname, router]);
 
-  // Tampilkan loading kosong sampai cek role selesai (mencegah konten admin terlihat sekilas)
   if (isCheckingAuth) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background"></div>
@@ -248,7 +254,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <div className="flex h-full max-h-screen flex-col">
           <div className="flex h-14 items-center border-b px-4">
             <Link
-              href={currentUser?.role === "ADMIN" ? "/dashboard" : "/pos"}
+              href={currentUser?.role === "ADMIN" ? "/pos" : "/pos"}
               className="flex items-center gap-2 font-semibold"
             >
               <Store className="h-6 w-6 text-primary" />
@@ -257,7 +263,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="flex-1  items-start px-2 py-4 text-sm font-medium overflow-auto">
-            {/* Render Menu yang sudah difilter */}
             <NavLinkItems
               pathname={pathname}
               isCollapsed={isCollapsed}
@@ -266,7 +271,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="mt-auto p-4 border-t">
-            {/* Info User Sedang Login */}
             {!isCollapsed && currentUser && (
               <div className="mb-4 px-2 text-xs text-muted-foreground">
                 Login sebagai:{" "}
@@ -302,14 +306,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col">
-              <nav className="grid gap-2 text-lg font-medium">
+            <SheetContent side="left" className="flex flex-col h-full">
+          
+              <nav className="flex-1 overflow-y-auto grid gap-2 text-lg font-medium pr-2">
                 <Link
-                  href={currentUser?.role === "ADMIN" ? "/dashboard" : "/pos"}
+                  href={currentUser?.role === "ADMIN" ? "/pos" : "/pos"}
                   className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                   <Store className="h-6 w-6 text-primary" />
-                  <span>My Perfume POS</span>
+                  <SheetHeader>
+                    <SheetTitle>My Perfume POS</SheetTitle>
+                  </SheetHeader>
                 </Link>
                 <NavLinkItems
                   pathname={pathname}
@@ -317,7 +324,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   links={filteredNavLinks}
                 />
               </nav>
-              <div className="mt-auto">
+              <div className="border-t ">
                 <Button
                   size="sm"
                   variant="outline"

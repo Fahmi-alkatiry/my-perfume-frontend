@@ -5,8 +5,9 @@ import { useState, useEffect } from "react";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/export";
-// import { format } from "date-fns";
-// import { id as dateFnsLocaleId } from "date-fns/locale";
+import { format, startOfMonth } from "date-fns";
+import { id as dateFnsLocaleId } from "date-fns/locale";
+import { DateRange } from "react-day-picker";
 
 // Komponen UI
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Table,
   TableBody,
@@ -36,11 +43,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   // Loader2,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Search,
+  CalendarIcon,
 } from "lucide-react";
+import { PaginationBar } from "@/components/products/PaginationBar";
 
 // --- Tipe Data ---
 interface StockHistoryItem {
@@ -86,6 +93,10 @@ export default function StockHistoryPage() {
   // State untuk UI Filter
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all"); // 'all', 'IN', 'OUT'
+  const [date, setDate] = useState<DateRange | undefined>({
+    from: startOfMonth(new Date()),
+    to: new Date(),
+  });
 
   // State yang dikirim ke API
   const [apiQuery, setApiQuery] = useState({
@@ -93,6 +104,8 @@ export default function StockHistoryPage() {
     limit: 15,
     search: "",
     type: "",
+    startDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
+    endDate: format(new Date(), "yyyy-MM-dd"),
   });
 
   // --- Fungsi Fetch Data ---
@@ -124,28 +137,51 @@ export default function StockHistoryPage() {
       limit: 15,
       search: searchTerm,
       type: typeFilter === "all" ? "" : typeFilter, // Kirim string kosong jika 'all'
+      startDate: date?.from ? format(date.from, "yyyy-MM-dd") : "",
+      endDate: date?.to ? format(date.to, "yyyy-MM-dd") : "",
     });
   };
 
-  const handleExport = () => {
-    if (history.length === 0) {
-      toast.error("Tidak ada data");
-      return;
+  const handleExport = async () => {
+    const loadingToast = toast.loading("Menyiapkan data untuk diekspor...");
+
+    try {
+      // Panggil API lagi dengan limit besar untuk mengambil semua data sesuai filter
+      const response = await axios.get(API_URL, {
+        params: {
+          ...apiQuery,
+          limit: 9999, // Ambil semua
+          page: 1,
+        },
+      });
+
+      const allHistory = response.data.data;
+
+      if (allHistory.length === 0) {
+        toast.error("Tidak ada data untuk diekspor", { id: loadingToast });
+        return;
+      }
+
+      const exportData = allHistory.map((item: StockHistoryItem) => ({
+        "Tanggal": new Date(item.createdAt).toLocaleDateString("id-ID"),
+        "Waktu": new Date(item.createdAt).toLocaleTimeString("id-ID"),
+        "Nama Produk": item.product.name,
+        "Kode Produk": item.product.productCode,
+        "Tipe": item.type, // IN / OUT
+        "Jumlah": item.quantity,
+        "Keterangan": item.notes || "-",
+        "Admin": item.user?.name || "N/A"
+      }));
+
+      exportToExcel(
+        exportData, 
+        `Riwayat_Stok_Lengkap_${new Date().toISOString().split('T')[0]}`
+      );
+      toast.success("Riwayat stok diunduh", { id: loadingToast });
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal mengambil data lengkap untuk ekspor", { id: loadingToast });
     }
-
-    const exportData = history.map((item) => ({
-      "Tanggal": new Date(item.createdAt).toLocaleDateString("id-ID"),
-      "Waktu": new Date(item.createdAt).toLocaleTimeString("id-ID"),
-      "Nama Produk": item.product.name,
-      "Kode Produk": item.product.productCode,
-      "Tipe": item.type, // IN / OUT
-      "Jumlah": item.quantity,
-      "Keterangan": item.notes || "-",
-      "Admin": item.user?.name || "N/A"
-    }));
-
-    exportToExcel(exportData, `Riwayat_Stok_${new Date().toISOString().split('T')[0]}`);
-    toast.success("Riwayat stok diunduh");
   };
 
   const handlePageChange = (newPage: number) => {
@@ -171,6 +207,41 @@ export default function StockHistoryPage() {
 
       {/* Filter Bar */}
       <div className="flex flex-col md:flex-row gap-2 mb-4">
+        {/* Filter Range Tanggal */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className="w-full md:w-[260px] justify-start text-left font-normal"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date?.from ? (
+                date.to ? (
+                  <>
+                    {format(date.from, "dd/MM/yy")} -{" "}
+                    {format(date.to, "dd/MM/yy")}
+                  </>
+                ) : (
+                  format(date.from, "dd/MM/yy")
+                )
+              ) : (
+                <span>Pilih rentang tanggal</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={date?.from}
+              selected={date}
+              onSelect={setDate}
+              numberOfMonths={2}
+              locale={dateFnsLocaleId}
+            />
+          </PopoverContent>
+        </Popover>
+
         {/* Filter Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -328,38 +399,11 @@ export default function StockHistoryPage() {
           {/* ------------------------------------- */}
 
           {/* Pagination */}
-          <div className="flex justify-between items-center mt-4">
-            <span className="text-sm text-muted-foreground">
-              Total {paginationInfo.totalCount} catatan
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(paginationInfo.currentPage - 1)}
-                disabled={paginationInfo.currentPage <= 1 || isLoading}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="ml-2">Sebelumnya</span>
-              </Button>
-              <span className="text-sm font-medium">
-                Halaman {paginationInfo.currentPage} dari{" "}
-                {paginationInfo.totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(paginationInfo.currentPage + 1)}
-                disabled={
-                  paginationInfo.currentPage >= paginationInfo.totalPages ||
-                  isLoading
-                }
-              >
-                <span className="mr-2">Berikutnya</span>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <PaginationBar
+            paginationInfo={paginationInfo}
+            isLoading={isLoading}
+            onPageChange={handlePageChange}
+          />
         </>
       )}
     </div>

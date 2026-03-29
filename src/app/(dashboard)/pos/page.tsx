@@ -11,7 +11,13 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,11 +29,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ShoppingCart, Loader2, LogOut } from "lucide-react";
+import { ShoppingCart, Loader2 } from "lucide-react";
+import { useNFC } from "@/hooks/useNFC";
 
 import { ProductListView } from "@/components/pos/product-list-view";
 import { CartView } from "@/components/pos/cart-view";
 import { PaymentModal } from "@/components/pos/payment-modal";
+import { PaymentSnap } from "@/components/pos/payment-snap";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 // --- Tipe Data ---
 export interface Product {
@@ -53,14 +62,8 @@ interface PaymentMethod {
   name: string;
 }
 
-declare global {
-  interface Window {
-    snap: any;
-  }
-}
-
 const API_URL_PRODUCTS = "/products";
-const API_URL_CUSTOMERS = "/customers"; // <-- API Customer
+const API_URL_CUSTOMERS = "/customers";
 const API_URL_TRANSACTIONS = "/transactions";
 const API_URL_AUTH_ME = "/auth/me";
 const API_URL_PAYMENT_METHODS = "/payment-methods";
@@ -82,9 +85,7 @@ export default function PosPage() {
 
   // Transaksi
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null,
-  );
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [usePoints, setUsePoints] = useState(false);
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
 
@@ -100,6 +101,7 @@ export default function PosPage() {
   // Modal Bayar
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [cashPaid, setCashPaid] = useState("");
+  const [activeTransactionId, setActiveTransactionId] = useState<number | null>(null);
 
   // Shift
   const [isStartShiftOpen, setIsStartShiftOpen] = useState(false);
@@ -108,12 +110,31 @@ export default function PosPage() {
   const [endCashInput, setEndCashInput] = useState("");
   const [isShiftLoading, setIsShiftLoading] = useState(false);
 
-  // --- STATE BARU: PELANGGAN BARU ---
+  // Pelanggan Baru
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
-  // ----------------------------------
+
+  // NFC Hook (Fixed identification)
+  const { isScanning, scan, stopScan } = useNFC();
+
+  const handleStartNfcScan = () => {
+    if (isScanning) {
+      stopScan();
+      return;
+    }
+    scan(async (uid) => {
+      try {
+        const res = await axios.get(`${API_URL_CUSTOMERS}/nfc/${uid}`);
+        setSelectedCustomer(res.data);
+        toast.success(`Pelanggan ${res.data.name} terdeteksi dari kartu!`);
+      } catch (err: any) {
+        toast.error("Gagal mendeteksi pelanggan. Kartu tidak terdaftar.");
+      }
+      stopScan();
+    });
+  };
 
   // Cart (LocalStorage)
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -167,47 +188,26 @@ export default function PosPage() {
   }, []);
 
   const normalizePhone = (phone: string) => {
-    let cleaned = phone.replace(/[^0-9]/g, ""); // hilangkan spasi/tanda + - .
-
-    if (cleaned.startsWith("0")) {
-      cleaned = "62" + cleaned.substring(1);
-    }
-
-    if (cleaned.startsWith("62")) {
-      return cleaned;
-    }
-
+    let cleaned = phone.replace(/[^0-9]/g, "");
+    if (cleaned.startsWith("0")) cleaned = "62" + cleaned.substring(1);
+    if (cleaned.startsWith("62")) return cleaned;
     return "62" + cleaned;
   };
 
-  // --- HANDLER PELANGGAN BARU (QUICK ADD) ---
   const handleAddNewCustomer = async (e: FormEvent) => {
     e.preventDefault();
     if (!newCustomerName || !newCustomerPhone) return;
 
-    const phoneRegex = /^(^\+?62|0)(\d{9,13})$/;
-
     const newCustomerPhoneNormalized = normalizePhone(newCustomerPhone);
-
-    if (!phoneRegex.test(newCustomerPhoneNormalized)) {
-      toast.error("Nomor HP tidak valid!");
-      return;
-    }
-
     setIsAddingCustomer(true);
     try {
-      // 1. Simpan ke database
       const res = await axios.post(API_URL_CUSTOMERS, {
         name: newCustomerName,
         phoneNumber: newCustomerPhoneNormalized,
       });
-
-      // 2. Langsung pilih pelanggan baru tersebut
       const newCustomer = res.data;
       setSelectedCustomer(newCustomer);
       toast.success(`Pelanggan ${newCustomer.name} ditambahkan.`);
-
-      // 3. Reset form
       setNewCustomerName("");
       setNewCustomerPhone("");
       setIsAddCustomerOpen(false);
@@ -217,9 +217,7 @@ export default function PosPage() {
       setIsAddingCustomer(false);
     }
   };
-  // ------------------------------------------
 
-  // Logic Cart & Produk
   const filteredProducts = useMemo(() => {
     if (!productSearchTerm) return products;
     const lower = productSearchTerm.toLowerCase();
@@ -260,7 +258,6 @@ export default function PosPage() {
   const removeFromCart = (id: number) =>
     setCart((prev) => prev.filter((i) => i.id !== id));
 
-  // --- LOGIC TOTAL & POIN VIRTUAL ---
   const subtotal = useMemo(
     () =>
       cart.reduce(
@@ -273,14 +270,8 @@ export default function PosPage() {
   const voucherDiscount = appliedVoucher?.discount || 0;
   const totalAfterVoucher = subtotal - voucherDiscount;
   const safeTotalAfterVoucher = totalAfterVoucher > 0 ? totalAfterVoucher : 0;
-
-  // 1. Hitung poin yang AKAN didapat dari transaksi ini (setelah voucher)
   const potentialPoints = Math.floor(safeTotalAfterVoucher / 30000);
-
-  // 2. Hitung total poin virtual (Poin Lama + Poin Baru)
   const totalVirtualPoints = (selectedCustomer?.points || 0) + potentialPoints;
-
-  // 3. Diskon poin aktif jika total virtual >= 10
   const discountPoints =
     usePoints && selectedCustomer && totalVirtualPoints >= 10 ? 30000 : 0;
 
@@ -289,14 +280,10 @@ export default function PosPage() {
       ? safeTotalAfterVoucher - discountPoints
       : 0;
 
-  // Update useEffect untuk reset usePoints jika poin virtual tidak cukup
   useEffect(() => {
-    if (!selectedCustomer || totalVirtualPoints < 10) {
-      setUsePoints(false);
-    }
+    if (!selectedCustomer || totalVirtualPoints < 10) setUsePoints(false);
   }, [selectedCustomer, totalVirtualPoints]);
 
-  // Handler Voucher
   const handleCheckVoucher = async () => {
     if (!voucherCode || cart.length === 0) return;
     setIsCheckingVoucher(true);
@@ -311,9 +298,7 @@ export default function PosPage() {
           code: res.data.code,
           discount: res.data.discountAmount,
         });
-        toast.success(
-          `Hemat Rp ${res.data.discountAmount.toLocaleString("id-ID")}`,
-        );
+        toast.success(`Hemat Rp ${res.data.discountAmount.toLocaleString("id-ID")}`);
       }
     } catch (e: any) {
       toast.error(e.response?.data?.error || "Voucher tidak valid");
@@ -328,15 +313,59 @@ export default function PosPage() {
     setVoucherCode("");
   };
 
-  // Handler Shift
+  const resetPosState = () => {
+    setCart([]);
+    localStorage.removeItem("myPerfumeCart");
+    setSelectedCustomer(null);
+    setUsePoints(false);
+    setAppliedVoucher(null);
+    setVoucherCode("");
+    setIsSheetOpen(false);
+    setIsPaymentModalOpen(false);
+    setCashPaid("");
+    setActiveTransactionId(null);
+    fetchProducts();
+  };
+
+  const handleCheckout = async (cashPaidAmount: number, change: number) => {
+    setIsSubmitting(true);
+    try {
+      const res = await axios.post(API_URL_TRANSACTIONS, {
+        items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
+        customerId: selectedCustomer?.id || null,
+        usePoints,
+        userId: currentUser?.id,
+        paymentMethodId: selectedMethodId,
+        voucherId: appliedVoucher?.id || null,
+      });
+
+      const transactionId = res.data.id;
+
+      // Logika khusus Midtrans (ID 3)
+      if (selectedMethodId === 3) {
+        setActiveTransactionId(transactionId);
+        setIsPaymentModalOpen(false); // Tutup segera agar snap tidak terhalang
+        setCashPaid("");
+        toast.success("Pesanan dibuat. Membuka jendela pembayaran...");
+        return;
+      }
+
+      // Logika Cash
+      toast.success("Transaksi Berhasil");
+      resetPosState();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "Gagal Transaksi");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleStartShift = async (e: FormEvent) => {
     e.preventDefault();
     if (!startCashInput) return;
     setIsShiftLoading(true);
     try {
-      await axios.post(`${API_URL_SHIFTS}/start`, {
-        startCash: Number(startCashInput),
-      });
+      await axios.post(`${API_URL_SHIFTS}/start`, { startCash: Number(startCashInput) });
       setIsStartShiftOpen(false);
       toast.success("Shift dimulai!");
     } catch {
@@ -351,16 +380,9 @@ export default function PosPage() {
     if (!endCashInput) return;
     setIsShiftLoading(true);
     try {
-      const res = await axios.post(`${API_URL_SHIFTS}/end`, {
-        endCash: Number(endCashInput),
-      });
+      const res = await axios.post(`${API_URL_SHIFTS}/end`, { endCash: Number(endCashInput) });
       const diff = res.data.details.difference;
-      const msg =
-        diff < 0
-          ? `KURANG Rp ${Math.abs(diff)}`
-          : diff > 0
-            ? `LEBIH Rp ${diff}`
-            : "PAS";
+      const msg = diff < 0 ? `KURANG Rp ${Math.abs(diff)}` : diff > 0 ? `LEBIH Rp ${diff}` : "PAS";
       toast.success(`Shift Ditutup. Selisih: ${msg}`);
       router.push("/login");
     } catch {
@@ -371,133 +393,29 @@ export default function PosPage() {
     }
   };
 
-  // Checkout & WA
-  const openWhatsApp = (receiptData: { cashPaid: number; change: number }) => {
-    if (!selectedCustomer?.phoneNumber) return;
-
-    const pointsEarned = Math.floor(cartTotal / 30000);
-    const pointsUsed = usePoints ? 10 : 0;
-    const finalPoints = selectedCustomer.points - pointsUsed + pointsEarned;
-
-    const itemsList = cart
-      .map(
-        (i, idx) =>
-          `${idx + 1}. ${i.name} ${i.quantity}x Rp ${Number(
-            i.sellingPrice,
-          ).toLocaleString("id-ID")}`,
-      )
-      .join("\n");
-
-    // --- Nomor WhatsApp Normalize ---
-    let phone = selectedCustomer.phoneNumber.trim();
-    if (phone.startsWith("0")) phone = phone.replace(/^0/, "62");
-    if (!phone.startsWith("62")) phone = "62" + phone;
-
-    // Deteksi device
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const baseUrl = isMobile
-      ? "https://api.whatsapp.com/send"
-      : "https://web.whatsapp.com/send";
-
-    const msg = `*My Perfume*\nTotal: Rp ${cartTotal.toLocaleString(
-      "id-ID",
-    )}\nTunai: Rp ${receiptData.cashPaid.toLocaleString(
-      "id-ID",
-    )}\nKembalian: Rp ${receiptData.change.toLocaleString(
-      "id-ID",
-    )}\n\n${itemsList}\n\nSisa Poin: ${finalPoints}\nTerima kasih!`;
-
-    // window.open(`${baseUrl}?phone=${phone}&text=${encodeURIComponent(msg)}`, "_blank");
-  };
-
- const handleCheckout = async (cashPaid: number, change: number) => {
-  setIsSubmitting(true);
-  try {
-    const response = await axios.post(API_URL_TRANSACTIONS, {
-      items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
-      customerId: selectedCustomer?.id || null,
-      usePoints,
-      userId: currentUser?.id,
-      paymentMethodId: selectedMethodId,
-      voucherId: appliedVoucher?.id || null,
-    });
-
-    if (response.data.snapToken) {
-      // 1. TUTUP MODAL PEMBAYARAN SEKARANG (Sebelum Snap Muncul)
-      setIsPaymentModalOpen(false); 
-      
-      // 2. Bersihkan input cash agar tidak nyangkut jika nanti buka modal lagi
-      setCashPaid(""); 
-
-      // 3. Jalankan Midtrans
-      window.snap.pay(response.data.snapToken, {
-        onSuccess: function (result: any) {
-          toast.success("Pembayaran Berhasil!");
-          finishTransaction(cashPaid, change, true); 
-        },
-        onPending: function (result: any) {
-          toast.info("Pesanan disimpan sebagai 'Pending'.");
-          finishTransaction(cashPaid, change, false); 
-        },
-        onError: function (result: any) {
-          toast.error("Pembayaran Gagal!");
-          // Opsi: Kamu bisa buka kembali modal jika gagal, 
-          // tapi biasanya lebih baik balik ke keranjang.
-        },
-        onClose: function () {
-          toast.warning("Pop-up ditutup.");
-        },
-      });
-    } else {
-      // JIKA CASH
-      toast.success("Transaksi Berhasil");
-      setIsPaymentModalOpen(false); // Tutup modal untuk cash juga
-      finishTransaction(cashPaid, change, true);
-    }
-
-  } catch (e: any) {
-    toast.error(e.response?.data?.error || "Gagal Transaksi");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
-  /**
-   * Fungsi pembantu (Helper) untuk membersihkan state setelah transaksi selesai
-   * agar kode tidak berulang-ulang (DRY - Don't Repeat Yourself)
-   */
-  const finishTransaction = (
-    cashPaid: number,
-    change: number,
-    sendWA: boolean,
-  ) => {
-    if (sendWA) {
-      openWhatsApp({ cashPaid, change });
-    }
-
-    // Reset semua state POS
-    setCart([]);
-    localStorage.removeItem("myPerfumeCart");
-    setSelectedCustomer(null);
-    setUsePoints(false);
-    setAppliedVoucher(null);
-    setVoucherCode("");
-    setIsSheetOpen(false);
-    setIsPaymentModalOpen(false);
-    setCashPaid("");
-    fetchProducts(); // Refresh stok di layar
-  };
-
   return (
     <div className="h-full w-full">
-      {/* DESKTOP */}
+      {/* Handler Global Midtrans (Hidden) */}
+      {activeTransactionId && (
+        <div className="hidden">
+           <PaymentSnap 
+              transactionId={activeTransactionId} 
+              onSuccess={() => {
+                toast.success("Pembayaran Berhasil!");
+                resetPosState();
+              }}
+              onClose={() => {
+                setActiveTransactionId(null);
+                toast.info("Pembayaran ditunda atau ditutup.");
+              }}
+           />
+        </div>
+      )}
+
+      {/* DESKTOP VIEW */}
       <div className="hidden h-full md:block">
         <ResizablePanelGroup direction="horizontal" className="h-full w-full">
-          <ResizablePanel
-            defaultSize={60}
-            minSize={40}
-            className="flex flex-col h-full min-h-0"
-          >
+          <ResizablePanel defaultSize={60} minSize={40} className="flex flex-col h-full min-h-0">
             <ProductListView
               products={filteredProducts}
               isLoading={isLoadingProducts}
@@ -507,11 +425,7 @@ export default function PosPage() {
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel
-            defaultSize={40}
-            minSize={30}
-            className="flex flex-col h-full min-h-0"
-          >
+          <ResizablePanel defaultSize={40} minSize={30} className="flex flex-col h-full min-h-0">
             <CartView
               cart={cart}
               selectedCustomer={selectedCustomer}
@@ -529,22 +443,21 @@ export default function PosPage() {
               selectedMethodId={selectedMethodId}
               onSelectMethod={setSelectedMethodId}
               onOpenEndShiftModal={() => setIsEndShiftOpen(true)}
-              // Props Voucher
               voucherCode={voucherCode}
               onVoucherCodeChange={setVoucherCode}
               onCheckVoucher={handleCheckVoucher}
               onRemoveVoucher={handleRemoveVoucher}
               appliedVoucher={appliedVoucher}
               isCheckingVoucher={isCheckingVoucher}
-              // --- PROP BARU: Buka Modal Pelanggan ---
               onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
-              onHandleCheckout={handleCheckout} // Kirim handler checkout ke CartView untuk tombol bayar di desktop
+              onStartNfcScan={handleStartNfcScan}
+              isNfcScanning={isScanning}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
 
-      {/* MOBILE */}
+      {/* MOBILE VIEW */}
       <div className="h-full md:hidden flex flex-col">
         <ProductListView
           products={filteredProducts}
@@ -565,6 +478,7 @@ export default function PosPage() {
             </Button>
           </SheetTrigger>
           <SheetContent className="flex flex-col p-0 h-full min-h-0">
+            <VisuallyHidden><SheetTitle>Keranjang</SheetTitle></VisuallyHidden>
             <CartView
               cart={cart}
               selectedCustomer={selectedCustomer}
@@ -582,33 +496,35 @@ export default function PosPage() {
               selectedMethodId={selectedMethodId}
               onSelectMethod={setSelectedMethodId}
               onOpenEndShiftModal={() => setIsEndShiftOpen(true)}
-              // Props Voucher
               voucherCode={voucherCode}
               onVoucherCodeChange={setVoucherCode}
               onCheckVoucher={handleCheckVoucher}
               onRemoveVoucher={handleRemoveVoucher}
               appliedVoucher={appliedVoucher}
               isCheckingVoucher={isCheckingVoucher}
-              // --- PROP BARU ---
               onOpenAddCustomer={() => setIsAddCustomerOpen(true)}
-              onHandleCheckout={handleCheckout} // Kirim handler checkout ke CartView untuk tombol bayar di mobile
+              onStartNfcScan={handleStartNfcScan}
+              isNfcScanning={isScanning}
             />
           </SheetContent>
         </Sheet>
       </div>
 
-      {/* MODAL-MODAL */}
+      {/* MODALS */}
       <PaymentModal
         isOpen={isPaymentModalOpen}
-        onOpenChange={setIsPaymentModalOpen}
+        onOpenChange={(open) => {
+          setIsPaymentModalOpen(open);
+          if (!open && !activeTransactionId) setCashPaid("");
+        }}
         totalAmount={cartTotal}
         cashPaid={cashPaid}
         onCashPaidChange={setCashPaid}
         onSubmit={handleCheckout}
         isSubmitting={isSubmitting}
+        selectedMethodId={selectedMethodId}
       />
 
-      {/* --- MODAL TAMBAH PELANGGAN (BARU) --- */}
       <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -619,64 +535,37 @@ export default function PosPage() {
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label>Nama</Label>
-                <Input
-                  value={newCustomerName}
-                  onChange={(e) => setNewCustomerName(e.target.value)}
-                  required
-                />
+                <Input value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label>No HP</Label>
-                <Input
-                  value={newCustomerPhone}
-                  onChange={(e) => setNewCustomerPhone(e.target.value)}
-                  required
-                  placeholder="08..."
-                />
+                <Input value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} required placeholder="08..." type="number" />
               </div>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={isAddingCustomer}>
-                {isAddingCustomer ? (
-                  <Loader2 className="animate-spin mr-2" />
-                ) : null}{" "}
-                Simpan
+                {isAddingCustomer ? <Loader2 className="animate-spin mr-2" /> : null} Simpan
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-      {/* ------------------------------------- */}
 
-      {/* Modal Shift */}
       <Dialog open={isStartShiftOpen} onOpenChange={() => {}}>
-        <DialogContent
-          className="sm:max-w-[400px]"
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
+        <DialogContent className="sm:max-w-[400px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Buka Shift</DialogTitle>
             <DialogDescription>Modal Awal</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleStartShift}>
-            <Input
-              type="number"
-              className="mb-4"
-              value={startCashInput}
-              onChange={(e) => setStartCashInput(e.target.value)}
-              required
-              autoFocus
-            />
+            <Input type="number" className="mb-4" value={startCashInput} onChange={(e) => setStartCashInput(e.target.value)} required autoFocus />
             <Button type="submit" disabled={isShiftLoading}>
-              {isShiftLoading ? (
-                <Loader2 className="animate-spin mr-2" />
-              ) : null}{" "}
-              Buka
+              {isShiftLoading ? <Loader2 className="animate-spin mr-2" /> : null} Buka
             </Button>
           </form>
         </DialogContent>
       </Dialog>
+
       <Dialog open={isEndShiftOpen} onOpenChange={setIsEndShiftOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
@@ -684,25 +573,9 @@ export default function PosPage() {
             <DialogDescription>Uang Fisik</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEndShift}>
-            <Input
-              type="number"
-              className="mb-4"
-              value={endCashInput}
-              onChange={(e) => setEndCashInput(e.target.value)}
-              required
-              autoFocus
-            />
-            <Button
-              type="submit"
-              variant="destructive"
-              disabled={isShiftLoading}
-            >
-              {isShiftLoading ? (
-                <Loader2 className="animate-spin mr-2" />
-              ) : (
-                <LogOut className="mr-2 h-4 w-4" />
-              )}{" "}
-              Tutup
+            <Input type="number" className="mb-4" value={endCashInput} onChange={(e) => setEndCashInput(e.target.value)} required autoFocus />
+            <Button type="submit" variant="destructive" disabled={isShiftLoading}>
+              {isShiftLoading ? <Loader2 className="animate-spin mr-2" /> : null} Tutup
             </Button>
           </form>
         </DialogContent>

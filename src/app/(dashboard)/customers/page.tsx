@@ -14,7 +14,9 @@ import {
   ArrowDownLeft,
   ChevronLeft,
   ChevronRight, // Ikon Poin Keluar
+  Nfc,
 } from "lucide-react";
+import { useNFC } from "@/hooks/useNFC";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -74,6 +76,7 @@ interface Customer {
   points: number;
   rfmSegment?: string;
   lastAnalysisDate?: string;
+  nfcCardId?: string | null;
 }
 
 // Tipe Riwayat Belanja
@@ -126,6 +129,11 @@ export default function CustomersPage() {
   // Data Poin (BARU)
   const [pointLogs, setPointLogs] = useState<PointLog[]>([]);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
+
+  // NFC State
+  const { isSupported, scan, stopScan, isScanning } = useNFC();
+  const [isNfcDialogOpen, setIsNfcDialogOpen] = useState(false);
+  const [nfcCustomer, setNfcCustomer] = useState<Customer | null>(null);
 
   // CRUD State
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
@@ -216,6 +224,41 @@ export default function CustomersPage() {
       console.error("Gagal load poin");
     } finally {
       setIsLoadingPoints(false);
+    }
+  };
+
+  // --- Handlers NFC ---
+  const handleOpenNfcDialog = (customer: Customer) => {
+    setNfcCustomer(customer);
+    setIsNfcDialogOpen(true);
+  };
+
+  const handleStartNfcLink = () => {
+    if (!nfcCustomer) return;
+    scan(async (cardUid) => {
+      stopScan();
+      try {
+        await axios.put(`${API_URL}/${nfcCustomer.id}`, { nfcCardId: cardUid });
+        toast.success(`Berhasil menautkan Kartu NFC ke ${nfcCustomer.name}!`);
+        setIsNfcDialogOpen(false);
+        setNfcCustomer(null);
+        fetchCustomers();
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || "Gagal menautkan kartu.");
+      }
+    });
+  };
+
+  const handleUnlinkNfc = async () => {
+    if (!nfcCustomer) return;
+    try {
+      await axios.put(`${API_URL}/${nfcCustomer.id}`, { nfcCardId: null });
+      toast.success(`Tautan kartu NFC dihapus dari pelanggan ${nfcCustomer.name}!`);
+      setIsNfcDialogOpen(false);
+      setNfcCustomer(null);
+      fetchCustomers();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Gagal menghapus tautan kartu.");
     }
   };
 
@@ -372,6 +415,14 @@ export default function CustomersPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => handleOpenNfcDialog(c)}
+                            title="Tautkan NFC"
+                          >
+                            <Nfc className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleOpenHistory(c)}
                             title="Riwayat"
                           >
@@ -420,6 +471,13 @@ export default function CustomersPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => handleOpenNfcDialog(c)}
+                  >
+                    <Nfc className="h-4 w-4 mr-2" /> NFC
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleOpenHistory(c)}
                   >
                     <History className="h-4 w-4 mr-2" /> Riwayat
@@ -454,6 +512,36 @@ export default function CustomersPage() {
   onPageChange={handlePageChange}
 />
 
+      {/* --- DIALOG NFC --- */}
+      <Dialog open={isNfcDialogOpen} onOpenChange={(open) => {
+        setIsNfcDialogOpen(open);
+        if (!open) setNfcCustomer(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tautkan NFC untuk {nfcCustomer?.name}</DialogTitle>
+            <DialogDescription>
+              {!isSupported ? (
+                "Perangkat/Browser ini tidak mendukung Web NFC. Gunakan Chrome di Android dengan koneksi HTTPS."
+              ) : (
+                "Klik tombol di bawah, lalu segera tempelkan kartu NFC ke bagian belakang smartphone Anda."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            {nfcCustomer?.nfcCardId && (
+              <Button variant="destructive" onClick={handleUnlinkNfc}>
+                Putuskan Kartu
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => { stopScan(); setIsNfcDialogOpen(false); }}>Batal</Button>
+            <Button onClick={handleStartNfcLink} disabled={!isSupported || isScanning}>
+              {isScanning ? "Membaca..." : "Mulai Tautkan NFC"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* --- DIALOG FORM CREATE/EDIT --- */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
@@ -477,6 +565,7 @@ export default function CustomersPage() {
                 value={formState.phoneNumber}
                 onChange={handleInputChange}
                 required
+                type="number"
               />
             </div>
             <div className="grid gap-2">
