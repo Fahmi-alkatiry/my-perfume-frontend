@@ -35,6 +35,7 @@ import { useNFC } from "@/hooks/useNFC";
 import { ProductListView } from "@/components/pos/product-list-view";
 import { CartView } from "@/components/pos/cart-view";
 import { PaymentModal } from "@/components/pos/payment-modal";
+import { PaymentSnap } from "@/components/pos/payment-snap";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 // --- Tipe Data ---
 export interface Product {
@@ -108,6 +109,7 @@ export default function PosPage() {
   const [startCashInput, setStartCashInput] = useState("");
   const [endCashInput, setEndCashInput] = useState("");
   const [isShiftLoading, setIsShiftLoading] = useState(false);
+  const [activeTransactionId, setActiveTransactionId] = useState<number | null>(null);
 
   // --- STATE BARU: PELANGGAN BARU ---
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
@@ -431,10 +433,24 @@ export default function PosPage() {
     // window.open(`${baseUrl}?phone=${phone}&text=${encodeURIComponent(msg)}`, "_blank");
   };
 
+  const resetPosState = () => {
+    setCart([]);
+    localStorage.removeItem("myPerfumeCart");
+    setSelectedCustomer(null);
+    setUsePoints(false);
+    setAppliedVoucher(null);
+    setVoucherCode("");
+    setIsSheetOpen(false);
+    setIsPaymentModalOpen(false);
+    setCashPaid("");
+    setActiveTransactionId(null);
+    fetchProducts();
+  };
+
   const handleCheckout = async (cashPaid: number, change: number) => {
     setIsSubmitting(true);
     try {
-      await axios.post(API_URL_TRANSACTIONS, {
+      const res = await axios.post(API_URL_TRANSACTIONS, {
         items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
         customerId: selectedCustomer?.id || null,
         usePoints,
@@ -443,19 +459,20 @@ export default function PosPage() {
         voucherId: appliedVoucher?.id || null,
       });
 
+      const transactionId = res.data.id;
+
+      if (selectedMethodId === 3) {
+        // Midtrans: Tutup modal agar tidak menumpuk, biarkan PaymentSnap global mengambil alih
+        setActiveTransactionId(transactionId);
+        setIsPaymentModalOpen(false); 
+        toast.success("Pesanan dibuat. Membuka jendela pembayaran...");
+        setIsSubmitting(false);
+        return;
+      }
+
       toast.success("Transaksi Berhasil");
       openWhatsApp({ cashPaid, change });
-
-      setCart([]);
-      localStorage.removeItem("myPerfumeCart");
-      setSelectedCustomer(null);
-      setUsePoints(false);
-      setAppliedVoucher(null);
-      setVoucherCode("");
-      setIsSheetOpen(false);
-      setIsPaymentModalOpen(false);
-      setCashPaid("");
-      fetchProducts();
+      resetPosState();
     } catch (e: any) {
       toast.error(e.response?.data?.error || "Gagal Transaksi");
     } finally {
@@ -581,12 +598,22 @@ export default function PosPage() {
       {/* MODAL-MODAL */}
       <PaymentModal
         isOpen={isPaymentModalOpen}
-        onOpenChange={setIsPaymentModalOpen}
+        onOpenChange={(open) => {
+          setIsPaymentModalOpen(open);
+          // Jika modal ditutup DAN tidak ada transaksi aktif (Snap), reset state.
+          // Tapi jika ada activeTransactionId, biarkan snap tetap berjalan di background.
+          if (!open && !activeTransactionId) {
+            setCashPaid("");
+          }
+        }}
         totalAmount={cartTotal}
         cashPaid={cashPaid}
         onCashPaidChange={setCashPaid}
         onSubmit={handleCheckout}
         isSubmitting={isSubmitting}
+        selectedMethodId={selectedMethodId}
+        transactionId={activeTransactionId}
+        onPaymentSuccess={resetPosState}
       />
 
       {/* --- MODAL TAMBAH PELANGGAN (BARU) --- */}
@@ -689,6 +716,23 @@ export default function PosPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* MIDTRANS GLOBAL HANDLER (Outside any dialogs to avoid focus trap/scroll lock) */}
+      {activeTransactionId && (
+        <div className="hidden">
+           <PaymentSnap 
+            transactionId={activeTransactionId}
+            onSuccess={resetPosState}
+            onError={() => {
+              setActiveTransactionId(null);
+            }}
+            onClose={() => {
+              // Biarkan transaksi tetap PENDING, tapi hilangkan tracker snap agar bisa buka lagi jika mau
+              setActiveTransactionId(null);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
