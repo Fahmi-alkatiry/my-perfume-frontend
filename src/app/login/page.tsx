@@ -43,7 +43,7 @@ export default function LoginPage() {
 
       // 2. Simpan token ke cookie
       // 'expires: 1' berarti token berlaku selama 1 hari
-      Cookies.set("token", token, { expires: 1 });
+      Cookies.set("token", token, { expires: 30 });
 
       toast.success("Login Berhasil!");
 
