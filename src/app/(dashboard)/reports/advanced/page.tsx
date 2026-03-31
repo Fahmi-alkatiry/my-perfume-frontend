@@ -145,7 +145,7 @@ export default function AdvancedReportPage() {
 
       {data && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <SummaryCard
               title="Total Omzet"
               value={data.summary.totalRevenue}
@@ -160,6 +160,11 @@ export default function AdvancedReportPage() {
               title="Pengeluaran"
               value={data.summary.totalExpenses ?? 0}
               icon={<TrendingDown className="text-red-500" />}
+            />
+            <SummaryCard
+              title="Alokasi Cadangan"
+              value={data.summary.totalStoreCashAllocated ?? 0}
+              icon={<TrendingDown className="text-orange-500" />}
             />
             <SummaryCard
               title="Laba Bersih"

@@ -33,6 +33,7 @@ import {
   Megaphone,
   Bot,
   Bell,
+  Banknote,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -75,6 +76,12 @@ const navLinks = [
     label: "Pengeluaran",
     icon: Wallet,
     adminOnly: true, // Hanya Admin yang boleh catat pengeluaran
+  },
+  {
+    href: "/store-cash",
+    label: "Dana Cadangan",
+    icon: Banknote,
+    adminOnly: true,
   },
   {
     href: "/reports/forecast",
