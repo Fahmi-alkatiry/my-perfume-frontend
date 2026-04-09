@@ -150,6 +150,11 @@ export function CartView({
                     <p className="text-sm text-muted-foreground">
                       Poin: {selectedCustomer.points}
                     </p>
+                    {selectedCustomer.rfmSegment && (
+                      <span className="text-[10px] bg-primary/10 text-primary w-fit px-1 rounded mt-1">
+                        {selectedCustomer.rfmSegment}
+                      </span>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
