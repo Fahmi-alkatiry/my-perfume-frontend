@@ -65,6 +65,18 @@ const navLinks = [
     icon: LineChart,
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
   },
+   {
+    href: "/products",
+    label: "Produk",
+    icon: Package,
+    adminOnly: false, // Kasir boleh lihat (tapi terbatas, diatur di halaman produk)
+  },
+  {
+    href: "/customers",
+    label: "Pelanggan",
+    icon: Users,
+    adminOnly: false, // Kasir boleh akses
+  },
   {
     href: "/reports/stock",
     label: "Riwayat Stok",
@@ -84,6 +96,12 @@ const navLinks = [
     adminOnly: true,
   },
   {
+    href: "/products/stock-opname",
+    label: "Stok Opname",
+    icon: ClipboardList,
+    adminOnly: true, // Hanya Admin yang boleh audit stok
+  },
+  {
     href: "/reports/forecast",
     label: "Peramalan Stok", // Atau "Analisis Stok"
     icon: BrainCircuit,
@@ -101,30 +119,13 @@ const navLinks = [
     icon: Ticket,
     adminOnly: true, // Hanya Admin
   },
-  {
-    href: "/products",
-    label: "Produk",
-    icon: Package,
-    adminOnly: false, // Kasir boleh lihat (tapi terbatas, diatur di halaman produk)
-  },
-  {
-    href: "/products/stock-opname",
-    label: "Stok Opname",
-    icon: ClipboardList,
-    adminOnly: true, // Hanya Admin yang boleh audit stok
-  },
-  {
-    href: "/customers",
-    label: "Pelanggan",
-    icon: Users,
-    adminOnly: false, // Kasir boleh akses
-  },
-  {
-    href: "/broadcast",
-    label: "Broadcast",
-    icon: Megaphone,
-    adminOnly: true, // Hanya Admin!
-  },
+  
+  // {
+  //   href: "/broadcast",
+  //   label: "Broadcast",
+  //   icon: Megaphone,
+  //   adminOnly: true, // Hanya Admin!
+  // },
   {
     href: "/payment-methods",
     label: "Metode Bayar",
@@ -149,7 +150,7 @@ const navLinks = [
     icon: BrainCircuit,
     adminOnly: true, // Hanya Admin yang boleh akses laporan mendalam
     // Hanya Admin yang boleh akses pengaturan
-  }
+  },
 ];
 // --- Komponen NavLinkItems (Di luar render) ---
 function NavLinkItems({
@@ -324,7 +325,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col h-full">
-          
               <nav className="flex-1 overflow-y-auto grid gap-2 text-lg font-medium pr-2">
                 <Link
                   href={currentUser?.role === "ADMIN" ? "/pos" : "/pos"}

@@ -27,6 +27,7 @@ export interface Customer {
   phoneNumber: string;
   points: number;
   nfcCardId?: string;
+  rfmSegment?: string;
 }
 
 interface CustomerComboboxProps {
@@ -154,11 +155,11 @@ export function CustomerCombobox({ onSelectCustomer }: CustomerComboboxProps) {
                       {customer.nfcCardId && `• Card: ${customer.nfcCardId}`}
                     </span>
                     {/* Tambahkan Badge Segment (Loyal/Sering) jika perlu */}
-                    {/* {customer.rfmSegment && (
+                    {customer.rfmSegment && (
                       <span className="text-[10px] bg-primary/10 text-primary w-fit px-1 rounded mt-1">
                         {customer.rfmSegment}
                       </span>
-                    )} */}
+                    )}
                   </div>
                 </CommandItem>
               ))}
