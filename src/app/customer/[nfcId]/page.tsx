@@ -16,6 +16,8 @@ import {
   History,
   CheckCircle2,
   Package,
+  Instagram,
+  MapPin,
 } from "lucide-react";
 
 interface Product {
@@ -191,6 +193,19 @@ export default function CustomerPublicProfile() {
           </div>
         )}
 
+        {/* Info Poin Banner */}
+        <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-md flex items-start gap-4">
+          <div className="bg-slate-800 p-2 rounded-xl text-slate-300 shrink-0 mt-0.5">
+            <Award className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold mb-1">Info Poin & Reward</h4>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Setiap pembelian <span className="font-semibold text-white">Rp 30.000</span> akan mendapatkan <span className="font-semibold text-white">1 Poin</span>. Kumpulkan hingga <span className="font-semibold text-white">10 Poin</span> untuk ditukarkan dengan diskon senilai <span className="font-semibold text-white">Rp 30.000</span>!
+            </p>
+          </div>
+        </div>
+
         {/* Transaction History Section */}
         <div className="space-y-4 pt-4">
           <div className="flex items-center gap-3 px-1 mb-2">
@@ -279,9 +294,47 @@ export default function CustomerPublicProfile() {
           )}
         </div>
         
+        {/* Social & Contact Section */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <h4 className="text-sm font-bold text-slate-900 text-center mb-4">Terhubung Bersama Kami</h4>
+          <div className="flex flex-col md:flex-row gap-3">
+            <a href="https://instagram.com/myperfumee__" target="_blank" rel="noreferrer" className="flex-1 flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors border border-slate-100">
+              <div className="bg-pink-100 text-pink-600 p-2 rounded-lg">
+                <Instagram className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-900">Instagram</p>
+                <p className="text-xs text-slate-500">@myperfumee__</p>
+              </div>
+            </a>
+            
+            <a href="https://tiktok.com/@myperfumee__" target="_blank" rel="noreferrer" className="flex-1 flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors border border-slate-100">
+              <div className="bg-slate-900 text-white p-2 rounded-lg">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-900">TikTok</p>
+                <p className="text-xs text-slate-500">@myperfumee__</p>
+              </div>
+            </a>
+
+            <a href="https://maps.app.goo.gl/awXsszYgyzADf3ca9" target="_blank" rel="noreferrer" className="flex-1 flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors border border-slate-100">
+              <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-900">Lokasi Toko</p>
+                <p className="text-xs text-slate-500">Kunjungi Kami</p>
+              </div>
+            </a>
+          </div>
+        </div>
+        
         <div className="pt-6 pb-2 text-center">
             <p className="text-slate-400 text-xs font-medium flex items-center justify-center gap-1.5">
-                Powered by <span className="text-slate-600 font-bold">My Perfume POS</span>
+                Powered by <span className="text-slate-600 font-bold">@fahmialkatiry</span>
             </p>
         </div>
       </main>

@@ -145,7 +145,7 @@ function RegisterForm() {
                 <Input
                   id="name"
                   required
-                  placeholder="Contoh: jokowi, prabowo, atau bahlil"
+                  placeholder="Contoh: Rehan, Aditya, Arya"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="h-12 border-slate-200 focus:border-rose-300 focus:ring-rose-200 transition-all rounded-lg text-lg"
