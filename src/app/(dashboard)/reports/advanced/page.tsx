@@ -12,6 +12,7 @@ import {
   DollarSign,
   ShoppingBag,
   Loader2,
+  Percent,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
@@ -145,7 +146,7 @@ export default function AdvancedReportPage() {
 
       {data && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <SummaryCard
               title="Total Omzet"
               value={data.summary.totalRevenue}
@@ -170,6 +171,11 @@ export default function AdvancedReportPage() {
               title="Laba Bersih"
               value={data.summary.totalNetProfit ?? data.summary.totalProfit}
               icon={<TrendingUp className="text-green-600" />}
+            />
+            <SummaryCard
+              title="Total Diskon"
+              value={data.summary.totalDiscounts ?? 0}
+              icon={<Percent className="text-purple-500" />}
             />
           </div>
           <div className="grid grid-cols-1 mt-4">

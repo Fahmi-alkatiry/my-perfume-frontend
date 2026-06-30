@@ -132,12 +132,12 @@ const navLinks = [
     icon: CreditCard,
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
   },
-  {
-    href: "/ai-assistant",
-    label: "Asisten AI",
-    icon: Bot,
-    adminOnly: true, // Pastikan hanya admin
-  },
+  // {
+  //   href: "/ai-assistant",
+  //   label: "Asisten AI",
+  //   icon: Bot,
+  //   adminOnly: true, // Pastikan hanya admin
+  // },
   {
     href: "/customers/lapsed",
     label: "Pengingat Pelanggan",
