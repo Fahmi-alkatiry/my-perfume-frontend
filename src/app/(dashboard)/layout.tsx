@@ -34,6 +34,7 @@ import {
   Bot,
   Bell,
   Banknote,
+  UserCog,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -149,7 +150,12 @@ const navLinks = [
     label: "Analisis Mendalam",
     icon: BrainCircuit,
     adminOnly: true, // Hanya Admin yang boleh akses laporan mendalam
-    // Hanya Admin yang boleh akses pengaturan
+  },
+  {
+    href: "/users",
+    label: "Kelola User",
+    icon: UserCog,
+    adminOnly: true, // Hanya Admin
   },
 ];
 // --- Komponen NavLinkItems (Di luar render) ---

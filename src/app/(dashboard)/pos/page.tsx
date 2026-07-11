@@ -83,9 +83,15 @@ export default function PosPage() {
 
   // Transaksi
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null,
-  );
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const savedCustomer = localStorage.getItem("myPerfumeSelectedCustomer");
+      return savedCustomer ? JSON.parse(savedCustomer) : null;
+    } catch {
+      return null;
+    }
+  });
   const [usePoints, setUsePoints] = useState(false);
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
 
@@ -151,6 +157,16 @@ export default function PosPage() {
     if (typeof window !== "undefined")
       localStorage.setItem("myPerfumeCart", JSON.stringify(cart));
   }, [cart]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (selectedCustomer) {
+        localStorage.setItem("myPerfumeSelectedCustomer", JSON.stringify(selectedCustomer));
+      } else {
+        localStorage.removeItem("myPerfumeSelectedCustomer");
+      }
+    }
+  }, [selectedCustomer]);
 
   // Initial Fetch
   const fetchProducts = async () => {
