@@ -5,16 +5,23 @@ import type { NextRequest } from 'next/server';
 const protectedRoutes = [
   '/dashboard',
   '/pos',
+  '/today-transactions',
   '/products',
   '/customers',
   '/reports',
   '/payment-methods',
+  '/expenses',
+  '/store-cash',
+  '/vouchers',
+  '/users',
+  '/broadcast',
+  '/ai-assistant',
+  '/whatsapp',
 ];
 
 // Fungsi untuk mengecek apakah path adalah rute privat
 function isProtectedRoute(pathname: string) {
   // Cek apakah pathname dimulai dengan salah satu rute di atas
-  // (misal: /reports/stock juga akan cocok)
   return protectedRoutes.some((route) => pathname.startsWith(route));
 }
 
