@@ -47,7 +47,6 @@ import {
   UserCog,
   QrCode,
   User,
-  Receipt,
 } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import axios from "@/lib/axios";
@@ -66,119 +65,96 @@ const navLinks = [
     label: "Dashboard",
     icon: LayoutDashboard,
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
-    cashierOnly: false,
   },
   {
     href: "/pos",
     label: "Kasir",
     icon: TabletSmartphone,
     adminOnly: false, // Semua boleh akses
-    cashierOnly: false,
-  },
-  {
-    href: "/today-transactions",
-    label: "Transaksi Hari Ini",
-    icon: Receipt,
-    adminOnly: false,
-    cashierOnly: true, // Khusus Kasir (tanpa profit)
   },
   {
     href: "/reports",
     label: "Laporan Transaksi",
     icon: LineChart,
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
-    cashierOnly: false,
   },
    {
     href: "/products",
     label: "Produk",
     icon: Package,
     adminOnly: false, // Kasir boleh lihat (tapi terbatas, diatur di halaman produk)
-    cashierOnly: false,
   },
   {
     href: "/customers",
     label: "Pelanggan",
     icon: Users,
     adminOnly: false, // Kasir boleh akses
-    cashierOnly: false,
   },
   {
     href: "/reports/stock",
     label: "Riwayat Stok",
     icon: Archive,
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
-    cashierOnly: false,
   },
   {
     href: "/expenses",
     label: "Pengeluaran",
     icon: Wallet,
     adminOnly: true, // Hanya Admin yang boleh catat pengeluaran
-    cashierOnly: false,
   },
   {
     href: "/store-cash",
     label: "Dana Cadangan",
     icon: Banknote,
     adminOnly: true,
-    cashierOnly: false,
   },
   {
     href: "/products/stock-opname",
     label: "Stok Opname",
     icon: ClipboardList,
     adminOnly: true, // Hanya Admin yang boleh audit stok
-    cashierOnly: false,
   },
   {
     href: "/reports/forecast",
     label: "Peramalan Stok", // Atau "Analisis Stok"
     icon: BrainCircuit,
     adminOnly: true,
-    cashierOnly: false,
   },
   {
     href: "/vouchers",
     label: "Voucher",
     icon: Ticket,
     adminOnly: true, // Hanya Admin
-    cashierOnly: false,
   },
   {
     href: "/payment-methods",
     label: "Metode Bayar",
     icon: CreditCard,
     adminOnly: true, // <-- SEMBUNYIKAN DARI KASIR
-    cashierOnly: false,
   },
   {
     href: "/customers/lapsed",
     label: "Pengingat Pelanggan",
     icon: Bell,
     adminOnly: true, // Hanya Admin!
-    cashierOnly: false,
   },
   {
     href: "/reports/advanced",
     label: "Analisis Mendalam",
     icon: BrainCircuit,
     adminOnly: true, // Hanya Admin yang boleh akses laporan mendalam
-    cashierOnly: false,
   },
   {
     href: "/whatsapp",
     label: "WhatsApp Web",
     icon: QrCode,
     adminOnly: true, // Hanya Admin
-    cashierOnly: false,
   },
   {
     href: "/users",
     label: "Kelola User",
     icon: UserCog,
     adminOnly: true, // Hanya Admin
-    cashierOnly: false,
   },
 ];
 
@@ -246,8 +222,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         // 1. Filter Menu Sidebar
         if (user.role === "ADMIN") {
-          // Admin tidak melihat menu khusus kasir
-          setFilteredNavLinks(navLinks.filter((link) => !link.cashierOnly));
+          setFilteredNavLinks(navLinks); // Admin lihat semua
         } else {
           // Kasir hanya lihat yang adminOnly: false
           setFilteredNavLinks(navLinks.filter((link) => !link.adminOnly));
@@ -264,14 +239,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             description: "Halaman ini khusus untuk Admin.",
           });
           router.replace("/pos"); // Lempar paksa ke halaman Kasir
-        }
-
-        // Jika user BUKAN KASIR mencoba akses halaman KHUSUS KASIR
-        if (user.role !== "CASHIER" && currentRouteConfig?.cashierOnly) {
-          toast.error("Akses Ditolak", {
-            description: "Halaman ini khusus untuk Kasir.",
-          });
-          router.replace("/reports");
         }
 
         // Tambahan: Jika Kasir mencoba akses root dashboard, lempar ke POS
