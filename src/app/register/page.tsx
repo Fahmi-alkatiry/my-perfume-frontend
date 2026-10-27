@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion"; // Tambahkan framer-motion untuk animasi
+import { motion } from "framer-motion";
 
 // Import Shadcn UI
 import { Button } from "@/components/ui/button";
@@ -20,26 +20,38 @@ import {
 } from "@/components/ui/card";
 import {
   Loader2,
-  UserPlus,
   Sparkles,
   CheckCircle2,
   Flower2,
+  Edit2,
 } from "lucide-react";
 
 function RegisterForm() {
   const searchParams = useSearchParams();
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
+  const [isPhoneLocked, setIsPhoneLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
-    const phoneFromUrl = searchParams.get("phone");
-    if (phoneFromUrl) setPhone(phoneFromUrl);
+    const rawPhone = searchParams.get("phone");
+    // Deteksi apakah nomor valid (bukan LID internal WhatsApp 15 digit berawalan 250...)
+    if (rawPhone && !(rawPhone.length >= 15 && rawPhone.startsWith("250"))) {
+      setPhone(rawPhone);
+      setIsPhoneLocked(true);
+    } else {
+      setIsPhoneLocked(false);
+    }
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phone.trim()) {
+      toast.error("Nomor WhatsApp wajib diisi.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       await axios.post("/customers", { name, phoneNumber: phone });
@@ -70,11 +82,10 @@ function RegisterForm() {
           Pendaftaran Berhasil!
         </h2>
 
-        {/* Bagian Nama Tebal di sini */}
         <p className="text-slate-600 leading-relaxed">
           Terima kasih Kak{" "}
           <strong className="text-black font-extrabold">{name}</strong>. <br />
-          Sekarang Kakak resmi menjadi bagian dari keluarga **My Perfume**.
+          Sekarang Kakak resmi menjadi bagian dari keluarga <strong>My Perfume</strong>.
         </p>
 
         <Button
@@ -113,25 +124,46 @@ function RegisterForm() {
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-5">
               <div className="space-y-2">
-                <Label
-                  htmlFor="phone"
-                  className="text-slate-700 font-medium ml-1"
-                >
-                  Nomor WhatsApp Terdeteksi
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="phone"
+                    className="text-slate-700 font-medium ml-1"
+                  >
+                    Nomor WhatsApp {isPhoneLocked ? "Terdeteksi" : ""}
+                  </Label>
+                  {isPhoneLocked && (
+                    <button
+                      type="button"
+                      onClick={() => setIsPhoneLocked(false)}
+                      className="text-xs text-rose-500 hover:text-rose-600 font-medium inline-flex items-center gap-1 hover:underline"
+                    >
+                      <Edit2 className="h-3 w-3" />
+                      Ubah Nomor
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Input
                     id="phone"
+                    required
                     value={phone}
-                    readOnly
-                    className="bg-slate-50/50 border-slate-200 text-slate-500 font-mono h-12 pl-4 focus-visible:ring-0 cursor-not-allowed italic"
+                    onChange={(e) => setPhone(e.target.value)}
+                    readOnly={isPhoneLocked}
+                    placeholder="Contoh: 081234567890 atau 628..."
+                    className={`h-12 pl-4 text-base ${
+                      isPhoneLocked
+                        ? "bg-slate-50/70 border-slate-200 text-slate-600 font-mono cursor-not-allowed italic"
+                        : "border-slate-200 focus:border-rose-300 focus:ring-rose-200"
+                    }`}
                   />
-                  <div className="absolute right-3 top-3">
-                    <CheckCircle2 className="h-5 w-5 text-green-500 opacity-70" />
-                  </div>
+                  {isPhoneLocked && (
+                    <div className="absolute right-3 top-3.5">
+                      <CheckCircle2 className="h-5 w-5 text-green-500 opacity-80" />
+                    </div>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-400 ml-1 italic">
-                  *Nomor ini akan digunakan untuk menyimpan poin Kakak.
+                  *Nomor ini akan digunakan untuk menyimpan poin Kakak saat transaksi di kasir.
                 </p>
               </div>
 
@@ -157,7 +189,7 @@ function RegisterForm() {
               <Button
                 type="submit"
                 className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 shadow-lg shadow-rose-200 transition-all active:scale-[0.98] rounded-xl gap-2"
-                disabled={isLoading || !name}
+                disabled={isLoading || !name || !phone}
               >
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
